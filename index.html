@@ -1,1 +1,167 @@
-<h1>메인 페이지야!</h1>
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Google Sheets에서 불러오는 서울 주말 산책 코스">
+  <title>서울 한 바퀴</title>
+  <style>
+    :root { --ink:#163832; --paper:#f5f0e4; --coral:#e76f51; --line:#d8d0c1; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; background:var(--paper); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif; }
+    a { color:inherit; text-decoration:none; }
+    button { font:inherit; }
+    a:focus-visible,button:focus-visible { outline:3px solid var(--coral); outline-offset:4px; }
+    .wrap { width:min(1180px,calc(100% - 40px)); margin:auto; }
+    header { height:82px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(22,56,50,.22); }
+    .brand { display:flex; align-items:center; gap:11px; font-weight:800; letter-spacing:-.04em; }
+    .mark { width:36px; height:36px; border-radius:50%; display:grid; place-items:center; color:var(--paper); background:var(--ink); font-family:Georgia,serif; }
+    .status { display:flex; align-items:center; gap:9px; font-size:12px; color:rgba(22,56,50,.68); }
+    .dot { width:8px; height:8px; border-radius:50%; background:#e6a23c; }
+    .dot.live { background:#2a9d8f; box-shadow:0 0 0 5px rgba(42,157,143,.12); }
+    .dot.fallback { background:#a69784; }
+    .hero { min-height:610px; display:grid; grid-template-columns:1.5fr .5fr; gap:80px; align-items:center; position:relative; }
+    .hero:after { content:""; position:absolute; right:-220px; top:80px; width:430px; height:430px; border:1px dashed rgba(22,56,50,.2); border-radius:45% 55% 60% 40%; transform:rotate(18deg); pointer-events:none; }
+    .eyebrow { margin:0 0 20px; color:var(--coral); font:700 11px/1 ui-monospace,SFMono-Regular,monospace; letter-spacing:.18em; }
+    h1 { margin:0; font-size:clamp(58px,7.5vw,102px); line-height:.98; letter-spacing:-.075em; }
+    h1 em { color:var(--coral); font-family:Georgia,"Times New Roman",serif; font-weight:500; }
+    .intro { max-width:590px; margin:32px 0 0; color:rgba(22,56,50,.74); font-size:18px; line-height:1.75; word-break:keep-all; }
+    .actions { display:flex; gap:12px; margin-top:36px; }
+    .button { min-height:50px; padding:0 21px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; gap:14px; border:1px solid var(--ink); cursor:pointer; transition:.2s; }
+    .button:hover { transform:translateY(-2px); }
+    .button.primary { background:var(--ink); color:white; font-weight:700; }
+    .button.secondary { background:transparent; color:var(--ink); }
+    .button:disabled { opacity:.5; cursor:wait; transform:none; }
+    .memo { width:min(100%,320px); justify-self:end; min-height:370px; padding:40px 36px; background:#f8d7c9; box-shadow:0 24px 50px rgba(52,45,35,.12); transform:rotate(2deg); position:relative; z-index:1; }
+    .tape { width:86px; height:24px; position:absolute; top:-10px; left:calc(50% - 43px); background:rgba(255,255,255,.5); transform:rotate(-3deg); }
+    .memo-label { margin:0 0 38px; font:700 11px/1 ui-monospace,SFMono-Regular,monospace; letter-spacing:.15em; }
+    .memo strong { display:block; font:500 112px/.75 Georgia,serif; letter-spacing:-.08em; }
+    .memo .count-label { display:block; margin-top:18px; font-size:19px; font-weight:800; }
+    .route { height:44px; margin:30px 0 20px; border-top:2px dotted rgba(22,56,50,.38); position:relative; }
+    .route i { position:absolute; top:-6px; width:10px; height:10px; border-radius:50%; background:var(--ink); }
+    .route i:nth-child(1){left:0}.route i:nth-child(2){left:50%}.route i:nth-child(3){right:0}
+    .memo small { line-height:1.6; color:rgba(22,56,50,.7); }
+    .routes { background:var(--ink); color:var(--paper); padding:94px 0 105px; }
+    .section-head { display:flex; justify-content:space-between; align-items:end; gap:25px; }
+    h2 { margin:0; font-size:clamp(38px,5vw,66px); letter-spacing:-.065em; }
+    .sheet-link { color:#bfd4ca; border-bottom:1px solid rgba(191,212,202,.5); padding-bottom:5px; white-space:nowrap; }
+    .filters { display:flex; flex-wrap:wrap; gap:8px; margin:40px 0; }
+    .filters button { padding:9px 16px; border:1px solid rgba(245,240,228,.28); border-radius:999px; background:transparent; color:var(--paper); cursor:pointer; }
+    .filters button:hover,.filters button.active { background:var(--paper); color:var(--ink); border-color:var(--paper); }
+    .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:17px; }
+    .card { --accent:#e76f51; min-height:410px; display:flex; flex-direction:column; padding:25px; background:#f7f2e7; color:var(--ink); border-top:7px solid var(--accent); transition:.22s; }
+    .card:hover { transform:translateY(-6px) rotate(-.3deg); }
+    .card-top { display:flex; justify-content:space-between; color:rgba(22,56,50,.55); font:700 11px/1 ui-monospace,SFMono-Regular,monospace; letter-spacing:.1em; }
+    .card-route { display:flex; align-items:center; margin:38px 0 25px; }
+    .card-route span { width:12px; height:12px; border:3px solid var(--accent); border-radius:50%; }
+    .card-route i { flex:1; border-top:2px dotted var(--accent); opacity:.65; }
+    .card h3 { margin:0; font-size:25px; line-height:1.2; letter-spacing:-.045em; word-break:keep-all; }
+    .card>p { margin:14px 0 22px; color:rgba(22,56,50,.72); line-height:1.65; word-break:keep-all; }
+    dl { margin:auto 0 24px; display:grid; grid-template-columns:repeat(3,1fr); padding:14px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+    dl div+div { padding-left:12px; border-left:1px solid var(--line); }
+    dt { margin-bottom:5px; color:rgba(22,56,50,.52); font-size:11px; } dd { margin:0; font-weight:800; }
+    .map { display:flex; align-items:center; justify-content:space-between; font-weight:800; }
+    .map span { width:30px; height:30px; border-radius:50%; display:grid; place-items:center; background:var(--accent); color:white; }
+    footer { min-height:160px; display:flex; align-items:center; justify-content:space-between; gap:20px; }
+    footer p { margin:0; } footer p:first-child { display:flex; align-items:center; gap:12px; font-weight:800; } footer p:last-child { color:rgba(22,56,50,.6); font-size:12px; }
+    @media(max-width:880px){ .hero{grid-template-columns:1fr;gap:18px;padding:75px 0}.hero:after{display:none}.memo{justify-self:start;width:100%;min-height:auto;transform:rotate(-1deg)}.memo strong{font-size:86px}.grid{grid-template-columns:repeat(2,1fr)} }
+    @media(max-width:600px){ .wrap{width:calc(100% - 30px)}header{height:70px}.brand span:last-child{display:none}.status{font-size:11px}.hero{min-height:auto;padding:58px 0 74px}h1{font-size:clamp(50px,15vw,70px)}.intro{font-size:16px}.actions{flex-direction:column}.section-head{align-items:start;flex-direction:column}.grid{grid-template-columns:1fr}.routes{padding:74px 0 80px}footer{min-height:200px;align-items:start;justify-content:center;flex-direction:column} }
+  </style>
+</head>
+<body>
+  <header class="wrap">
+    <a class="brand" href="#top"><span class="mark">한</span><span>서울 한 바퀴</span></a>
+    <div class="status" aria-live="polite"><span class="dot" id="dot"></span><span id="statusText">Google Sheets 확인 중</span></div>
+  </header>
+
+  <main>
+    <section class="hero wrap" id="top">
+      <div>
+        <p class="eyebrow">WEEKEND WALK NOTES · SEOUL</p>
+        <h1>이번 주말,<br><em>어디로 걸을까요?</em></h1>
+        <p class="intro">멀리 떠나지 않아도 좋아요. 서울의 골목, 숲, 강변을 천천히 만나는 산책 코스를 모았습니다.</p>
+        <div class="actions">
+          <a class="button primary" href="#routes">코스 둘러보기 ↓</a>
+          <button class="button secondary" id="refreshButton" type="button">↻ 시트 새로고침</button>
+        </div>
+      </div>
+      <aside class="memo">
+        <span class="tape"></span><p class="memo-label">THIS WEEKEND</p>
+        <strong id="count">8</strong><span class="count-label">개의 산책 코스</span>
+        <div class="route"><i></i><i></i><i></i></div>
+        <small>Google Sheets의 행을<br>산책 카드로 불러옵니다.</small>
+      </aside>
+    </section>
+
+    <section class="routes" id="routes">
+      <div class="wrap">
+        <div class="section-head">
+          <div><p class="eyebrow">CURATED ROUTES</p><h2>마음이 가는 방향으로</h2></div>
+          <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1Em9VGMTh1jA1AYSPmBz0_bVgI1Or-z_y52c4TTqWe2Y/edit" target="_blank" rel="noreferrer">원본 Google Sheet ↗</a>
+        </div>
+        <div class="filters" id="filters" aria-label="테마 필터"></div>
+        <div class="grid" id="grid"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <p><span class="mark">한</span>서울은 걸을수록 가까워집니다.</p>
+    <p>데이터는 Google Sheets 한 장으로 관리됩니다.</p>
+  </footer>
+
+  <script>
+    const SHEET_ID = "1Em9VGMTh1jA1AYSPmBz0_bVgI1Or-z_y52c4TTqWe2Y";
+    const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent("산책코스")}`;
+    const fallback = [
+      ["서촌 골목과 수성동계곡","종로","골목","90분","쉬움","오전","한옥 사이를 지나 계곡까지, 서울의 오래된 결을 따라 걷는 코스","https://map.naver.com/p/search/수성동계곡","#E76F51"],
+      ["서울숲에서 응봉산","성동","자연","120분","보통","노을","숲길과 한강, 응봉산 전망을 한 번에 만나는 초록빛 산책","https://map.naver.com/p/search/응봉산","#2A9D8F"],
+      ["덕수궁 돌담길 야간산책","중구","야경","60분","쉬움","저녁","조명 아래 고궁 담장과 정동길의 차분한 밤 분위기를 즐기는 길","https://map.naver.com/p/search/덕수궁 돌담길","#5E60CE"],
+      ["망원한강공원 피크닉 루프","마포","한강","80분","쉬움","오후","시장 간식을 챙겨 강바람과 잔디밭을 천천히 누비는 코스","https://map.naver.com/p/search/망원한강공원","#F4A261"],
+      ["북서울꿈의숲 전망 산책","강북","공원","100분","보통","오전","넓은 공원과 월영지, 전망대를 이어 걷는 한적한 주말 코스","https://map.naver.com/p/search/북서울꿈의숲","#457B9D"],
+      ["반포대교 달빛 산책","서초","야경","70분","쉬움","저녁","세빛섬에서 달빛무지개분수까지 이어지는 반짝이는 강변 산책","https://map.naver.com/p/search/반포한강공원","#9B5DE5"],
+      ["연남동 경의선숲길","마포","카페","75분","쉬움","오후","도심 숲길과 작은 가게, 카페를 가볍게 이어 보는 느긋한 코스","https://map.naver.com/p/search/경의선숲길","#00B4D8"],
+      ["낙산공원 성곽길","종로","전망","110분","보통","노을","성곽을 따라 서울의 지붕과 노을을 내려다보는 오르막 산책","https://map.naver.com/p/search/낙산공원","#E63946"]
+    ].map(toWalk);
+    let walks = fallback;
+    let selected = "전체";
+
+    function toWalk(row){ return {name:row[0],district:row[1],theme:row[2],duration:row[3],difficulty:row[4],best:row[5],description:row[6],map:row[7],accent:row[8]||"#E76F51"}; }
+    function escapeHTML(value){ const div=document.createElement("div"); div.textContent=value||""; return div.innerHTML; }
+    function parseCSV(text){
+      const rows=[]; let row=[],cell="",quoted=false;
+      for(let i=0;i<text.length;i++){ const ch=text[i],next=text[i+1];
+        if(ch==='"'&&quoted&&next==='"'){cell+='"';i++;}
+        else if(ch==='"'){quoted=!quoted;}
+        else if(ch===','&&!quoted){row.push(cell.trim());cell="";}
+        else if((ch==='\n'||ch==='\r')&&!quoted){if(ch==='\r'&&next==='\n')i++;row.push(cell.trim());if(row.some(Boolean))rows.push(row);row=[];cell="";}
+        else cell+=ch;
+      }
+      row.push(cell.trim()); if(row.some(Boolean))rows.push(row); return rows;
+    }
+    function csvToWalks(text){
+      const rows=parseCSV(text),headers=rows.shift()||[];
+      const index=name=>headers.indexOf(name), value=(row,name)=>row[index(name)]||"";
+      return rows.filter(row=>value(row,"이름")).map(row=>({name:value(row,"이름"),district:value(row,"지역"),theme:value(row,"테마"),duration:value(row,"소요시간"),difficulty:value(row,"난이도"),best:value(row,"추천시간"),description:value(row,"한줄소개"),map:value(row,"지도링크"),accent:value(row,"포인트색상")||"#E76F51"}));
+    }
+    function render(){
+      const themes=["전체",...new Set(walks.map(w=>w.theme))];
+      document.getElementById("filters").innerHTML=themes.map(theme=>`<button class="${selected===theme?"active":""}" data-theme="${escapeHTML(theme)}" aria-pressed="${selected===theme}">${escapeHTML(theme)}</button>`).join("");
+      document.querySelectorAll("[data-theme]").forEach(button=>button.addEventListener("click",()=>{selected=button.dataset.theme;render();}));
+      const visible=selected==="전체"?walks:walks.filter(w=>w.theme===selected);
+      document.getElementById("grid").innerHTML=visible.map((w,i)=>`<article class="card" style="--accent:${escapeHTML(w.accent)}"><div class="card-top"><span>${String(i+1).padStart(2,"0")}</span><span>${escapeHTML(w.district)} · ${escapeHTML(w.theme)}</span></div><div class="card-route"><span></span><i></i><span></span></div><h3>${escapeHTML(w.name)}</h3><p>${escapeHTML(w.description)}</p><dl><div><dt>시간</dt><dd>${escapeHTML(w.duration)}</dd></div><div><dt>난이도</dt><dd>${escapeHTML(w.difficulty)}</dd></div><div><dt>추천</dt><dd>${escapeHTML(w.best)}</dd></div></dl><a class="map" href="${escapeHTML(w.map)}" target="_blank" rel="noreferrer">지도에서 보기 <span>↗</span></a></article>`).join("");
+      document.getElementById("count").textContent=walks.length;
+    }
+    async function syncSheet(){
+      const button=document.getElementById("refreshButton"),status=document.getElementById("statusText"),dot=document.getElementById("dot");
+      button.disabled=true; status.textContent="Google Sheets 확인 중"; dot.className="dot";
+      try { const response=await fetch(`${CSV_URL}&cache=${Date.now()}`,{cache:"no-store"}); if(!response.ok)throw new Error(); const data=csvToWalks(await response.text()); if(!data.length)throw new Error(); walks=data; status.textContent="Google Sheets 연결됨"; dot.className="dot live"; }
+      catch(error){ walks=fallback; status.textContent="기본 목록 표시 중"; dot.className="dot fallback"; }
+      button.disabled=false; render();
+    }
+    document.getElementById("refreshButton").addEventListener("click",syncSheet);
+    render(); syncSheet();
+  </script>
+</body>
+</html>
