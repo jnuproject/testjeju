@@ -1,1 +1,337 @@
-<h1>발표자료야!</h1>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>시간표 도우미 — 발표</title>
+<style>
+:root {
+  --bg: #0F0F0F;
+  --surface: #1C1C1C;
+  --text: #F5F5F5;
+  --muted: #9A9A9A;
+  --accent: #FFFFFF;
+  --line: rgba(255,255,255,0.14);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; background: var(--bg); }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+#deck { position: fixed; inset: 0; }
+.slide {
+  position: absolute; inset: 0;
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  padding: 7vh 9vw;
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity .35s ease, transform .35s ease;
+}
+.slide.active { display: flex; opacity: 1; transform: none; overflow-y: auto; }
+
+.eyebrow {
+  font-size: clamp(12px, 1.4vw, 16px);
+  letter-spacing: .18em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 2.2vh;
+  font-weight: 600;
+}
+h1 { font-size: clamp(36px, 6.5vw, 88px); font-weight: 800; line-height: 1.12; letter-spacing: -0.02em; }
+h2 { font-size: clamp(28px, 4.6vw, 58px); font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 3.5vh; }
+.lead { font-size: clamp(16px, 2vw, 24px); color: var(--muted); line-height: 1.6; margin-top: 3vh; max-width: 34em; }
+.presenter { margin-top: 6vh; font-size: clamp(15px, 1.8vw, 22px); color: var(--text); }
+.presenter .p-sub { color: var(--muted); font-size: 0.85em; margin-top: 0.6vh; }
+
+ul.points { list-style: none; display: flex; flex-direction: column; gap: 2.2vh; }
+ul.points li {
+  font-size: clamp(16px, 2.1vw, 26px);
+  line-height: 1.5;
+  padding-left: 1.2em;
+  position: relative;
+}
+ul.points li::before { content: '—'; position: absolute; left: 0; color: var(--muted); }
+ul.points li b { font-weight: 700; }
+ul.points li .dim { color: var(--muted); font-size: 0.82em; }
+
+.grid { display: grid; gap: 1.6vw; }
+.grid.c2 { grid-template-columns: 1fr 1fr; }
+
+.flow { display: flex; align-items: center; gap: 1.2vw; flex-wrap: wrap; }
+.flow .node {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  padding: 1.6vh 1.4vw; text-align: center;
+}
+.flow .node .n-t { font-weight: 700; font-size: clamp(13px, 1.5vw, 19px); }
+.flow .node .n-s { color: var(--muted); font-size: clamp(11px, 1.1vw, 14px); margin-top: 0.4vh; }
+.flow .arrow { color: var(--muted); font-size: clamp(16px, 2vw, 26px); }
+
+.kbd-hint { position: fixed; bottom: 3.2vh; left: 9vw; color: var(--muted); font-size: 13px; }
+#counter { position: fixed; bottom: 3.2vh; right: 9vw; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+#bar { position: fixed; top: 0; left: 0; height: 3px; background: var(--accent); transition: width .3s ease; }
+
+.mock-tt {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px;
+  width: min(36vw, 460px);
+}
+.mock-tt .col { display: flex; flex-direction: column; gap: 5px; }
+.mock-tt .cell { border-radius: 6px; background: var(--surface); border: 1px solid var(--line); }
+.mock-tt .cell.f { border: none; }
+
+.steps-mock { display: flex; flex-direction: column; gap: 1.2vh; width: min(34vw, 420px); }
+.steps-mock .s {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  padding: 1.5vh 1.4vw; display: flex; align-items: center; gap: 1vw;
+  font-size: clamp(12px, 1.4vw, 17px);
+}
+.steps-mock .s .n {
+  width: 1.8em; height: 1.8em; border-radius: 50%; background: var(--text); color: var(--bg);
+  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85em; flex: none;
+}
+.steps-mock .s .d { color: var(--muted); font-size: 0.85em; margin-left: auto; }
+
+.stat-row { display: flex; gap: 4vw; margin-top: 4vh; flex-wrap: wrap; }
+.stat .s-v { font-size: clamp(30px, 4.5vw, 56px); font-weight: 800; }
+.stat .s-l { color: var(--muted); font-size: clamp(12px, 1.3vw, 16px); margin-top: 0.5vh; }
+
+/* DB 스키마 다이어그램 */
+.schema { display: flex; gap: 2.4vw; align-items: flex-start; flex-wrap: wrap; margin-bottom: 3vh; }
+.dbtable {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  min-width: min(30vw, 320px); overflow: hidden;
+}
+.dbtable .db-h {
+  padding: 1.4vh 1.4vw; font-weight: 800; border-bottom: 1px solid var(--line);
+  font-size: clamp(14px, 1.7vw, 21px);
+  font-family: "SF Mono", Menlo, monospace;
+}
+.dbtable .db-r {
+  padding: 1vh 1.4vw; font-size: clamp(12px, 1.3vw, 16px);
+  display: flex; justify-content: space-between; gap: 1.5vw;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.dbtable .db-r:last-child { border-bottom: none; }
+.dbtable .db-r .f { font-family: "SF Mono", Menlo, monospace; }
+.dbtable .db-r .c { color: var(--muted); }
+.dbtable .db-r.key .f { font-weight: 700; }
+.rel { align-self: center; text-align: center; color: var(--muted); font-size: clamp(13px, 1.5vw, 18px); }
+.rel .r-line { font-size: clamp(18px, 2.2vw, 28px); color: var(--text); }
+
+.footer-note { position: fixed; bottom: 3.2vh; left: 50%; transform: translateX(-50%); color: var(--muted); font-size: 12px; }
+@media (max-width: 640px) {
+  .grid.c2 { grid-template-columns: 1fr; }
+  .slide { padding: 6vh 7vw; }
+}
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<div id="deck">
+
+  <!-- 1. 타이틀 -->
+  <section class="slide">
+    <div class="eyebrow">Project</div>
+    <h1>시간표 도우미</h1>
+    <p class="lead">조건만 넣으면 졸업요건에 맞는 시간표를<br>추천해주는 웹 서비스</p>
+    <div class="presenter">
+      제주대학교 컴퓨터공학과 22학번 <b>고예훈</b>
+    </div>
+  </section>
+
+  <!-- 2. 문제 -->
+  <section class="slide">
+    <div class="eyebrow">Problem</div>
+    <h2>수강신청 전날 밤,<br>모두가 겪는 일</h2>
+    <ul class="points">
+      <li>수강편람 엑셀을 뒤지며 <b>시간 안 겹치는 조합</b>을 손으로 맞추고</li>
+      <li>기초교양 분야, 전공필수, 졸업학점… <b>복잡한 졸업요건</b>은 따로 계산하고</li>
+      <li>몇 시간을 들여도 <b>"이게 최선인가?"</b>라는 확신이 없다</li>
+    </ul>
+  </section>
+
+  <!-- 3. 소개 -->
+  <section class="slide">
+    <div class="eyebrow">What it does</div>
+    <h2>조건을 넣으면,<br>시간표가 나온다</h2>
+    <div class="grid c2" style="align-items:center">
+      <div class="steps-mock">
+        <div class="s"><span class="n">1</span> 학업 정보 <span class="d">학번 · 학과 · 이수 학점</span></div>
+        <div class="s"><span class="n">2</span> 이수한 강의 <span class="d">추천 후보에서 제외</span></div>
+        <div class="s"><span class="n">3</span> 강의 직접 선택 <span class="d">필수 포함 / 제외</span></div>
+        <div class="s"><span class="n">4</span> 우선순위 <span class="d">전공 · 교양 · 일반</span></div>
+        <div class="s"><span class="n">5</span> 시간 조건 <span class="d">요일 · 시간대 · 공강</span></div>
+        <div class="s" style="border-color:var(--text)"><span class="n">✦</span> <b>추천안 4개 생성</b></div>
+      </div>
+      <div class="mock-tt" aria-hidden="true">
+        <div class="col"><div class="cell" style="height:5vh"></div><div class="cell f" style="height:9vh;background:#5B7A99"></div><div class="cell" style="height:7vh"></div></div>
+        <div class="col"><div class="cell f" style="height:7vh;background:#7A996B"></div><div class="cell" style="height:6vh"></div><div class="cell f" style="height:8vh;background:#99765B"></div></div>
+        <div class="col"><div class="cell" style="height:4vh"></div><div class="cell f" style="height:10vh;background:#7A5B99"></div><div class="cell" style="height:7vh"></div></div>
+        <div class="col"><div class="cell f" style="height:6vh;background:#5B9992"></div><div class="cell" style="height:8vh"></div><div class="cell f" style="height:7vh;background:#995B6E"></div></div>
+        <div class="col"><div class="cell" style="height:9vh"></div><div class="cell f" style="height:6vh;background:#5B6E99"></div><div class="cell" style="height:6vh"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. 졸업요건 -->
+  <section class="slide">
+    <div class="eyebrow">Smart defaults</div>
+    <h2>졸업요건을 알고 있는<br>시간표</h2>
+    <ul class="points">
+      <li><b>2021~2026학번 전 학과</b>의 수강편람 기준학점 내장 <span class="dim">졸업학점 · 전공 · 교양</span></li>
+      <li>학과를 고르면 <b>기준학점이 자동 설정</b></li>
+      <li>기초교양 필수 분야(글쓰기·논리·외국어·SW)의 <b>미이수 영역을 우선 추천</b></li>
+      <li>전공필수는 <b>자동으로 시간표에 포함</b></li>
+    </ul>
+  </section>
+
+  <!-- 5. 추천 엔진 -->
+  <section class="slide">
+    <div class="eyebrow">Engine</div>
+    <h2>추천 엔진</h2>
+    <div class="flow" style="margin-bottom:4vh">
+      <div class="node"><div class="n-t">후보 수집</div><div class="n-s">전공 + 교양 개설 강의</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="n-t">필터링</div><div class="n-s">이수·제외 강의, 시간 조건</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="n-t">탐색</div><div class="n-s">완전탐색 / 빔서치</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="n-t">점수화</div><div class="n-s">졸업요건 커버리지</div></div>
+    </div>
+    <ul class="points">
+      <li>과목 수가 적으면 <b>완전탐색</b>, 많으면 <b>빔서치</b>로 자동 전환</li>
+      <li><b>4가지 전략</b>을 병렬 실행 — 균형 · 전공 우선 · 필수요건 우선 · 시간표 우선</li>
+      <li>남은 졸업요건을 채우는 조합에 가산점, 공강·등교일은 감점</li>
+      <li>수만 개 조합을 <b>수 초 안에</b> 탐색해 상위 추천안만 제시</li>
+    </ul>
+  </section>
+
+  <!-- 6. DB 설계 -->
+  <section class="slide">
+    <div class="eyebrow">Database</div>
+    <h2>데이터베이스 설계</h2>
+    <div class="schema">
+      <div class="dbtable">
+        <div class="db-h">courses <span style="color:var(--muted);font-weight:400">강의</span></div>
+        <div class="db-r key"><span class="f">id</span><span class="c">PK</span></div>
+        <div class="db-r"><span class="f">course_name</span><span class="c">과목명</span></div>
+        <div class="db-r"><span class="f">professor</span><span class="c">교수</span></div>
+        <div class="db-r"><span class="f">department</span><span class="c">개설 학과</span></div>
+        <div class="db-r"><span class="f">credits</span><span class="c">학점</span></div>
+        <div class="db-r"><span class="f">completion_type</span><span class="c">이수구분</span></div>
+        <div class="db-r"><span class="f">academic_year · semester</span><span class="c">연도 · 학기</span></div>
+      </div>
+      <div class="rel">
+        <div class="r-line">1 ⟶ N</div>
+        <div>강의 하나에<br>수업 시간 여러 개</div>
+      </div>
+      <div class="dbtable">
+        <div class="db-h">course_meetings <span style="color:var(--muted);font-weight:400">수업 시간</span></div>
+        <div class="db-r key"><span class="f">course_id</span><span class="c">FK</span></div>
+        <div class="db-r"><span class="f">weekday</span><span class="c">요일</span></div>
+        <div class="db-r"><span class="f">start_time · end_time</span><span class="c">시작 · 종료</span></div>
+        <div class="db-r"><span class="f">room</span><span class="c">강의실</span></div>
+      </div>
+    </div>
+    <ul class="points">
+      <li>한 강의가 <b>주 2~3회 다른 시간·강의실</b>에서 열리므로 시간을 별도 테이블로 분리</li>
+      <li>덕분에 <b>시간 겹침 검사</b>가 행 단위 비교로 단순해짐</li>
+      <li>공식 수강편람(.xls)을 <b>자동 변환</b>해 학기 단위로 적재</li>
+    </ul>
+  </section>
+
+  <!-- 7. 기술 구성 -->
+  <section class="slide">
+    <div class="eyebrow">Engineering</div>
+    <h2>HTML 파일 하나가 전부</h2>
+    <ul class="points">
+      <li>프레임워크 없음, 빌드 없음, <b>외부 라이브러리 0개</b></li>
+      <li>강의 DB는 <b>REST API로 직접 조회</b> — 추천 계산은 전부 브라우저 안에서</li>
+      <li>입력 정보는 서버로 보내지 않고 <b>브라우저에만 저장</b> <span class="dim">로그인 불필요 · 개인정보 수집 없음</span></li>
+      <li>다크모드 · 모바일 대응</li>
+    </ul>
+    <div class="stat-row">
+      <div class="stat"><div class="s-v">1</div><div class="s-l">HTML 파일</div></div>
+      <div class="stat"><div class="s-v">0</div><div class="s-l">외부 의존성</div></div>
+      <div class="stat"><div class="s-v">0</div><div class="s-l">서버 비용</div></div>
+    </div>
+  </section>
+
+  <!-- 8. 검증 -->
+  <section class="slide">
+    <div class="eyebrow">Verified</div>
+    <h2>실제로 돌려봤습니다</h2>
+    <ul class="points">
+      <li>학과 <b>128개</b> 로딩, 졸업요건 자동 계산 <span class="dim">컴퓨터공학과 140학점 · 전공 84 확인</span></li>
+      <li>개설 강의 <b>후보 542개</b>에서 추천안 <b>4개 생성</b> — 전부 목표 18학점 충족</li>
+      <li>시간표 그리드 · 강의 검색 · 저장/복원 동작 확인, <b>콘솔 에러 0건</b></li>
+    </ul>
+  </section>
+
+  <!-- 9. 다음 단계 -->
+  <section class="slide">
+    <div class="eyebrow">Next</div>
+    <h2>다음 단계</h2>
+    <ul class="points">
+      <li>정적 호스팅으로 <b>정식 배포</b> — 수강신청 시즌에 링크로 공유</li>
+      <li>졸업요건 데이터를 <b>DB로 이관</b>해 학칙 변경에 빠르게 대응</li>
+      <li>이수 강의 <b>자동 입력</b> 방안 검토 <span class="dim">성적표 파일 업로드 등</span></li>
+      <li>사용 피드백 반영해 추천 품질 개선</li>
+    </ul>
+  </section>
+
+  <!-- 10. 마무리 -->
+  <section class="slide" style="align-items:flex-start">
+    <div class="eyebrow">Thanks</div>
+    <h1 style="font-size:clamp(32px,5.5vw,76px)">설치 없이,<br>링크 하나로 시간표를</h1>
+    <p class="lead">감사합니다 · Q&amp;A</p>
+  </section>
+
+</div>
+
+<div class="kbd-hint">← → 또는 클릭으로 이동</div>
+<div id="counter"></div>
+
+<script>
+'use strict';
+const slides = [...document.querySelectorAll('.slide')];
+const counter = document.getElementById('counter');
+const bar = document.getElementById('bar');
+let index = 0;
+
+function show(next) {
+  index = Math.max(0, Math.min(slides.length - 1, next));
+  slides.forEach((slide, i) => slide.classList.toggle('active', i === index));
+  counter.textContent = `${index + 1} / ${slides.length}`;
+  bar.style.width = `${((index + 1) / slides.length) * 100}%`;
+  location.hash = index + 1;
+}
+
+document.addEventListener('keydown', (event) => {
+  if (['ArrowRight', ' ', 'PageDown', 'Enter'].includes(event.key)) { event.preventDefault(); show(index + 1); }
+  if (['ArrowLeft', 'PageUp', 'Backspace'].includes(event.key)) { event.preventDefault(); show(index - 1); }
+  if (event.key === 'Home') show(0);
+  if (event.key === 'End') show(slides.length - 1);
+});
+document.addEventListener('click', (event) => {
+  if (event.clientX > window.innerWidth * 0.3) show(index + 1);
+  else show(index - 1);
+});
+let touchX = null;
+document.addEventListener('touchstart', (e) => { touchX = e.touches[0].clientX; }, { passive: true });
+document.addEventListener('touchend', (e) => {
+  if (touchX == null) return;
+  const dx = e.changedTouches[0].clientX - touchX;
+  if (dx < -40) show(index + 1);
+  else if (dx > 40) show(index - 1);
+  touchX = null;
+}, { passive: true });
+
+const fromHash = parseInt(location.hash.slice(1), 10);
+show(Number.isFinite(fromHash) ? fromHash - 1 : 0);
+</script>
+</body>
+</html>
