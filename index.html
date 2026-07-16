@@ -1,167 +1,1802 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Google Sheets에서 불러오는 서울 주말 산책 코스">
-  <title>서울 한 바퀴</title>
-  <style>
-    :root { --ink:#163832; --paper:#f5f0e4; --coral:#e76f51; --line:#d8d0c1; }
-    * { box-sizing:border-box; }
-    html { scroll-behavior:smooth; }
-    body { margin:0; background:var(--paper); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif; }
-    a { color:inherit; text-decoration:none; }
-    button { font:inherit; }
-    a:focus-visible,button:focus-visible { outline:3px solid var(--coral); outline-offset:4px; }
-    .wrap { width:min(1180px,calc(100% - 40px)); margin:auto; }
-    header { height:82px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(22,56,50,.22); }
-    .brand { display:flex; align-items:center; gap:11px; font-weight:800; letter-spacing:-.04em; }
-    .mark { width:36px; height:36px; border-radius:50%; display:grid; place-items:center; color:var(--paper); background:var(--ink); font-family:Georgia,serif; }
-    .status { display:flex; align-items:center; gap:9px; font-size:12px; color:rgba(22,56,50,.68); }
-    .dot { width:8px; height:8px; border-radius:50%; background:#e6a23c; }
-    .dot.live { background:#2a9d8f; box-shadow:0 0 0 5px rgba(42,157,143,.12); }
-    .dot.fallback { background:#a69784; }
-    .hero { min-height:610px; display:grid; grid-template-columns:1.5fr .5fr; gap:80px; align-items:center; position:relative; }
-    .hero:after { content:""; position:absolute; right:-220px; top:80px; width:430px; height:430px; border:1px dashed rgba(22,56,50,.2); border-radius:45% 55% 60% 40%; transform:rotate(18deg); pointer-events:none; }
-    .eyebrow { margin:0 0 20px; color:var(--coral); font:700 11px/1 ui-monospace,SFMono-Regular,monospace; letter-spacing:.18em; }
-    h1 { margin:0; font-size:clamp(58px,7.5vw,102px); line-height:.98; letter-spacing:-.075em; }
-    h1 em { color:var(--coral); font-family:Georgia,"Times New Roman",serif; font-weight:500; }
-    .intro { max-width:590px; margin:32px 0 0; color:rgba(22,56,50,.74); font-size:18px; line-height:1.75; word-break:keep-all; }
-    .actions { display:flex; gap:12px; margin-top:36px; }
-    .button { min-height:50px; padding:0 21px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; gap:14px; border:1px solid var(--ink); cursor:pointer; transition:.2s; }
-    .button:hover { transform:translateY(-2px); }
-    .button.primary { background:var(--ink); color:white; font-weight:700; }
-    .button.secondary { background:transparent; color:var(--ink); }
-    .button:disabled { opacity:.5; cursor:wait; transform:none; }
-    .memo { width:min(100%,320px); justify-self:end; min-height:370px; padding:40px 36px; background:#f8d7c9; box-shadow:0 24px 50px rgba(52,45,35,.12); transform:rotate(2deg); position:relative; z-index:1; }
-    .tape { width:86px; height:24px; position:absolute; top:-10px; left:calc(50% - 43px); background:rgba(255,255,255,.5); transform:rotate(-3deg); }
-    .memo-label { margin:0 0 38px; font:700 11px/1 ui-monospace,SFMono-Regular,monospace; letter-spacing:.15em; }
-    .memo strong { display:block; font:500 112px/.75 Georgia,serif; letter-spacing:-.08em; }
-    .memo .count-label { display:block; margin-top:18px; font-size:19px; font-weight:800; }
-    .route { height:44px; margin:30px 0 20px; border-top:2px dotted rgba(22,56,50,.38); position:relative; }
-    .route i { position:absolute; top:-6px; width:10px; height:10px; border-radius:50%; background:var(--ink); }
-    .route i:nth-child(1){left:0}.route i:nth-child(2){left:50%}.route i:nth-child(3){right:0}
-    .memo small { line-height:1.6; color:rgba(22,56,50,.7); }
-    .routes { background:var(--ink); color:var(--paper); padding:94px 0 105px; }
-    .section-head { display:flex; justify-content:space-between; align-items:end; gap:25px; }
-    h2 { margin:0; font-size:clamp(38px,5vw,66px); letter-spacing:-.065em; }
-    .sheet-link { color:#bfd4ca; border-bottom:1px solid rgba(191,212,202,.5); padding-bottom:5px; white-space:nowrap; }
-    .filters { display:flex; flex-wrap:wrap; gap:8px; margin:40px 0; }
-    .filters button { padding:9px 16px; border:1px solid rgba(245,240,228,.28); border-radius:999px; background:transparent; color:var(--paper); cursor:pointer; }
-    .filters button:hover,.filters button.active { background:var(--paper); color:var(--ink); border-color:var(--paper); }
-    .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:17px; }
-    .card { --accent:#e76f51; min-height:410px; display:flex; flex-direction:column; padding:25px; background:#f7f2e7; color:var(--ink); border-top:7px solid var(--accent); transition:.22s; }
-    .card:hover { transform:translateY(-6px) rotate(-.3deg); }
-    .card-top { display:flex; justify-content:space-between; color:rgba(22,56,50,.55); font:700 11px/1 ui-monospace,SFMono-Regular,monospace; letter-spacing:.1em; }
-    .card-route { display:flex; align-items:center; margin:38px 0 25px; }
-    .card-route span { width:12px; height:12px; border:3px solid var(--accent); border-radius:50%; }
-    .card-route i { flex:1; border-top:2px dotted var(--accent); opacity:.65; }
-    .card h3 { margin:0; font-size:25px; line-height:1.2; letter-spacing:-.045em; word-break:keep-all; }
-    .card>p { margin:14px 0 22px; color:rgba(22,56,50,.72); line-height:1.65; word-break:keep-all; }
-    dl { margin:auto 0 24px; display:grid; grid-template-columns:repeat(3,1fr); padding:14px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
-    dl div+div { padding-left:12px; border-left:1px solid var(--line); }
-    dt { margin-bottom:5px; color:rgba(22,56,50,.52); font-size:11px; } dd { margin:0; font-weight:800; }
-    .map { display:flex; align-items:center; justify-content:space-between; font-weight:800; }
-    .map span { width:30px; height:30px; border-radius:50%; display:grid; place-items:center; background:var(--accent); color:white; }
-    footer { min-height:160px; display:flex; align-items:center; justify-content:space-between; gap:20px; }
-    footer p { margin:0; } footer p:first-child { display:flex; align-items:center; gap:12px; font-weight:800; } footer p:last-child { color:rgba(22,56,50,.6); font-size:12px; }
-    @media(max-width:880px){ .hero{grid-template-columns:1fr;gap:18px;padding:75px 0}.hero:after{display:none}.memo{justify-self:start;width:100%;min-height:auto;transform:rotate(-1deg)}.memo strong{font-size:86px}.grid{grid-template-columns:repeat(2,1fr)} }
-    @media(max-width:600px){ .wrap{width:calc(100% - 30px)}header{height:70px}.brand span:last-child{display:none}.status{font-size:11px}.hero{min-height:auto;padding:58px 0 74px}h1{font-size:clamp(50px,15vw,70px)}.intro{font-size:16px}.actions{flex-direction:column}.section-head{align-items:start;flex-direction:column}.grid{grid-template-columns:1fr}.routes{padding:74px 0 80px}footer{min-height:200px;align-items:start;justify-content:center;flex-direction:column} }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>시간표 도우미</title>
+<meta name="description" content="제주대학교 수강신청 추천 시간표 도우미">
+<style>
+:root {
+  --bg: #F4F4F4;
+  --surface: #FFFFFF;
+  --primary: #111111;
+  --on-primary: #FFFFFF;
+  --text: #111111;
+  --text-secondary: #6B6B6B;
+  --separator: rgba(0,0,0,0.08);
+  --subtle-fill: rgba(0,0,0,0.06);
+  --danger: #C0392B;
+  --radius: 14px;
+  --radius-control: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0F0F0F;
+    --surface: #1C1C1C;
+    --primary: #F5F5F5;
+    --on-primary: #111111;
+    --text: #F5F5F5;
+    --text-secondary: #9A9A9A;
+    --separator: rgba(255,255,255,0.12);
+    --subtle-fill: rgba(255,255,255,0.09);
+    --danger: #E74C3C;
+  }
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+#app { max-width: 560px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; }
+header.appbar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px 10px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+header.appbar h1 { font-size: 17px; font-weight: 700; flex: 1; text-align: center; }
+header.appbar .bar-btn {
+  background: none; border: none; color: var(--text); font-size: 15px;
+  cursor: pointer; padding: 4px 0; min-width: 64px; font-family: inherit;
+}
+header.appbar .bar-btn.left { text-align: left; }
+header.appbar .bar-btn.right { text-align: right; }
+header.appbar .bar-btn:disabled { visibility: hidden; }
+.progress { display: flex; gap: 5px; padding: 4px 16px 8px; }
+.progress span { flex: 1; height: 3px; border-radius: 2px; background: var(--subtle-fill); transition: background .2s; }
+.progress span.on { background: var(--primary); }
+main { flex: 1; padding: 12px 16px 120px; }
+.step-title { font-size: 23px; font-weight: 800; margin-top: 6px; }
+.step-sub { color: var(--text-secondary); font-size: 13.5px; margin: 4px 0 20px; }
+.section-h { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin: 20px 4px 8px; display: flex; justify-content: space-between; align-items: center; }
+.section-h button { background:none; border:none; color: var(--text); font-weight: 600; font-size: 14px; cursor: pointer; font-family: inherit; }
+.card { background: var(--surface); border-radius: var(--radius); overflow: hidden; }
+.card + .card { margin-top: 12px; }
+.row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 13px 16px; min-height: 48px;
+}
+.row + .row, .row + .divider + .row { border-top: 0.5px solid var(--separator); }
+.row .grow { flex: 1; min-width: 0; }
+.row .label { font-size: 15px; }
+.row .sub { font-size: 12.5px; color: var(--text-secondary); margin-top: 1px; }
+.row .val { color: var(--text-secondary); font-size: 14px; text-align: right; }
+.row.tappable { cursor: pointer; }
+.row.tappable:active { background: var(--subtle-fill); }
+.chev { color: var(--text-secondary); font-size: 13px; }
+select, input[type="number"], input[type="text"], input[type="search"] {
+  font-family: inherit; font-size: 15px; color: var(--text);
+  background: var(--subtle-fill); border: none; border-radius: 9px;
+  padding: 8px 10px; outline: none;
+}
+select { appearance: none; -webkit-appearance: none; padding-right: 26px;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="%23888" stroke-width="1.5" stroke-linecap="round"/></svg>');
+  background-repeat: no-repeat; background-position: right 9px center;
+}
+input.credit { width: 56px; text-align: center; padding: 7px 4px; }
+.seg { display: flex; background: var(--subtle-fill); border-radius: 9px; padding: 2px; gap: 2px; }
+.seg button {
+  flex: 1; border: none; background: transparent; color: var(--text);
+  font-family: inherit; font-size: 13.5px; padding: 6px 10px; border-radius: 7px;
+  cursor: pointer; white-space: nowrap;
+}
+.seg button.on { background: var(--surface); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+.stepper { display: flex; align-items: center; gap: 2px; }
+.stepper button {
+  width: 34px; height: 34px; border-radius: 50%; border: none;
+  background: none; color: var(--text); font-size: 20px; cursor: pointer; line-height: 1;
+}
+.stepper button:disabled { opacity: 0.25; }
+.stepper .num { min-width: 52px; text-align: center; font-weight: 600; }
+.switch { position: relative; width: 48px; height: 29px; flex: none; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch i {
+  position: absolute; inset: 0; background: var(--subtle-fill);
+  border-radius: 15px; transition: .18s; cursor: pointer;
+}
+.switch i::after {
+  content: ''; position: absolute; width: 25px; height: 25px; border-radius: 50%;
+  background: #fff; top: 2px; left: 2px; transition: .18s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+.switch input:checked + i { background: #34C759; }
+.switch input:checked + i::after { transform: translateX(19px); }
+.daybtns { display: flex; gap: 6px; padding: 4px 16px 14px; }
+.daybtns button {
+  flex: 1; height: 36px; border: none; border-radius: 9px;
+  background: var(--subtle-fill); color: var(--text); font-family: inherit;
+  font-size: 14px; cursor: pointer;
+}
+.daybtns button.on { background: var(--primary); color: var(--on-primary); font-weight: 600; }
+.prio { display: flex; background: var(--subtle-fill); border-radius: 9px; padding: 2px; width: 180px; }
+.prio button { flex:1; border:none; background:transparent; color: var(--text); padding: 5px 0; border-radius: 7px; cursor: pointer; font-family: inherit; font-size: 13.5px; }
+.prio button.on { background: var(--surface); font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+.bottom-bar {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 560px; z-index: 30;
+  display: flex; gap: 10px; align-items: center;
+  padding: 10px 16px calc(14px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-top: 0.5px solid var(--separator);
+}
+.btn-primary {
+  flex: 1; height: 50px; border: none; border-radius: var(--radius-control);
+  background: var(--primary); color: var(--on-primary);
+  font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+}
+.btn-primary:disabled { opacity: 0.55; }
+.btn-ghost {
+  height: 50px; padding: 0 18px; border: none; border-radius: var(--radius-control);
+  background: none; color: var(--text); font-family: inherit; font-size: 15px; cursor: pointer;
+}
+.btn-line {
+  width: 100%; height: 46px; border: none; border-radius: var(--radius-control);
+  background: var(--subtle-fill); color: var(--text);
+  font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.hint { font-size: 12.5px; color: var(--text-secondary); padding: 8px 4px 0; }
+.badge { font-size: 12px; color: var(--text-secondary); }
+.spinner {
+  width: 20px; height: 20px; border: 2.5px solid color-mix(in srgb, var(--on-primary) 35%, transparent);
+  border-top-color: var(--on-primary); border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+.spinner.dark { border-color: var(--subtle-fill); border-top-color: var(--text); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.center { display: flex; align-items: center; justify-content: center; padding: 60px 0; flex-direction: column; gap: 12px; color: var(--text-secondary); }
+
+/* modal */
+.modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
+.modal {
+  background: var(--bg); width: 100%; max-width: 560px; height: 92dvh;
+  border-radius: 16px 16px 0 0; display: flex; flex-direction: column; overflow: hidden;
+}
+.modal .m-head { display: flex; align-items: center; padding: 14px 16px 10px; gap: 8px; }
+.modal .m-head h2 { flex: 1; text-align: center; font-size: 16px; font-weight: 700; }
+.modal .m-head button { background: none; border: none; color: var(--text); font-size: 15px; cursor: pointer; min-width: 52px; font-family: inherit; font-weight: 600; }
+.modal .m-head button.cancel { font-weight: 400; color: var(--text-secondary); }
+.modal .m-search { padding: 0 16px 10px; }
+.modal .m-search input { width: 100%; }
+.modal .m-body { flex: 1; overflow-y: auto; padding: 0 16px 30px; }
+.course-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; }
+.course-item + .course-item { border-top: 0.5px solid var(--separator); }
+.course-item .check {
+  width: 22px; height: 22px; border-radius: 50%; flex: none;
+  border: 1.5px solid var(--separator); display: flex; align-items: center; justify-content: center;
+  font-size: 12px; color: var(--on-primary);
+}
+.course-item.sel .check { background: var(--primary); border-color: var(--primary); }
+.course-item .name { font-weight: 600; font-size: 14.5px; }
+.course-item .meta { font-size: 12.5px; color: var(--text-secondary); margin-top: 1px; }
+
+/* timetable grid */
+.tt-wrap { padding: 10px 12px 14px; }
+.tt { display: grid; gap: 2px; font-size: 10.5px; }
+.tt .h { text-align: center; color: var(--text-secondary); padding: 3px 0; font-size: 11px; }
+.tt .timecol { position: relative; }
+.tt .timecol .t { position: absolute; right: 4px; transform: translateY(-6px); color: var(--text-secondary); font-size: 10px; }
+.tt .daycol { position: relative; background: var(--subtle-fill); border-radius: 6px; }
+.tt .hline { position: absolute; left: 0; right: 0; height: 0.5px; background: var(--separator); }
+.tt .block {
+  position: absolute; left: 1.5px; right: 1.5px; border-radius: 5px;
+  padding: 3px 4px; overflow: hidden; color: #fff; line-height: 1.25;
+}
+.tt .block .bn { font-weight: 700; font-size: 10.5px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.tt .block .br { font-size: 9.5px; opacity: 0.85; }
+.plan-meta { font-size: 12.5px; color: var(--text-secondary); }
+.done-icon { font-size: 46px; text-align: center; }
+.notice {
+  background: var(--surface); border-radius: var(--radius); padding: 12px 16px;
+  font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;
+}
+.err { color: var(--danger); font-size: 13.5px; padding: 8px 4px; }
+</style>
 </head>
 <body>
-  <header class="wrap">
-    <a class="brand" href="#top"><span class="mark">한</span><span>서울 한 바퀴</span></a>
-    <div class="status" aria-live="polite"><span class="dot" id="dot"></span><span id="statusText">Google Sheets 확인 중</span></div>
+<div id="app">
+  <header class="appbar">
+    <button class="bar-btn left" id="navLeft"></button>
+    <h1>시간표 도우미</h1>
+    <button class="bar-btn right" id="navRight"></button>
   </header>
+  <div class="progress" id="progress"></div>
+  <main id="main"></main>
+</div>
+<div id="bottomBar"></div>
+<div id="modalRoot"></div>
 
-  <main>
-    <section class="hero wrap" id="top">
-      <div>
-        <p class="eyebrow">WEEKEND WALK NOTES · SEOUL</p>
-        <h1>이번 주말,<br><em>어디로 걸을까요?</em></h1>
-        <p class="intro">멀리 떠나지 않아도 좋아요. 서울의 골목, 숲, 강변을 천천히 만나는 산책 코스를 모았습니다.</p>
-        <div class="actions">
-          <a class="button primary" href="#routes">코스 둘러보기 ↓</a>
-          <button class="button secondary" id="refreshButton" type="button">↻ 시트 새로고침</button>
-        </div>
-      </div>
-      <aside class="memo">
-        <span class="tape"></span><p class="memo-label">THIS WEEKEND</p>
-        <strong id="count">8</strong><span class="count-label">개의 산책 코스</span>
-        <div class="route"><i></i><i></i><i></i></div>
-        <small>Google Sheets의 행을<br>산책 카드로 불러옵니다.</small>
-      </aside>
-    </section>
+<script>
+'use strict';
 
-    <section class="routes" id="routes">
-      <div class="wrap">
-        <div class="section-head">
-          <div><p class="eyebrow">CURATED ROUTES</p><h2>마음이 가는 방향으로</h2></div>
-          <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1Em9VGMTh1jA1AYSPmBz0_bVgI1Or-z_y52c4TTqWe2Y/edit" target="_blank" rel="noreferrer">원본 Google Sheet ↗</a>
-        </div>
-        <div class="filters" id="filters" aria-label="테마 필터"></div>
-        <div class="grid" id="grid"></div>
-      </div>
-    </section>
-  </main>
+/* ============================================================
+ * Supabase REST (PostgREST) — 앱과 동일한 courses / course_meetings 테이블
+ * ============================================================ */
+const SUPABASE_URL = 'https://sqqyvdpsalclqczqsyrk.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_YHSvz8zk38QLXdvM02cgSA_aBjd1Hxj';
 
-  <footer class="wrap">
-    <p><span class="mark">한</span>서울은 걸을수록 가까워집니다.</p>
-    <p>데이터는 Google Sheets 한 장으로 관리됩니다.</p>
-  </footer>
+async function rest(table, params) {
+  const url = new URL(`${SUPABASE_URL}/rest/v1/${table}`);
+  for (const [key, value] of params) url.searchParams.append(key, value);
+  const res = await fetch(url, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+  });
+  if (!res.ok) throw new Error(`강의 서버 오류 (${res.status})`);
+  return res.json();
+}
 
-  <script>
-    const SHEET_ID = "1Em9VGMTh1jA1AYSPmBz0_bVgI1Or-z_y52c4TTqWe2Y";
-    const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent("산책코스")}`;
-    const fallback = [
-      ["서촌 골목과 수성동계곡","종로","골목","90분","쉬움","오전","한옥 사이를 지나 계곡까지, 서울의 오래된 결을 따라 걷는 코스","https://map.naver.com/p/search/수성동계곡","#E76F51"],
-      ["서울숲에서 응봉산","성동","자연","120분","보통","노을","숲길과 한강, 응봉산 전망을 한 번에 만나는 초록빛 산책","https://map.naver.com/p/search/응봉산","#2A9D8F"],
-      ["덕수궁 돌담길 야간산책","중구","야경","60분","쉬움","저녁","조명 아래 고궁 담장과 정동길의 차분한 밤 분위기를 즐기는 길","https://map.naver.com/p/search/덕수궁 돌담길","#5E60CE"],
-      ["망원한강공원 피크닉 루프","마포","한강","80분","쉬움","오후","시장 간식을 챙겨 강바람과 잔디밭을 천천히 누비는 코스","https://map.naver.com/p/search/망원한강공원","#F4A261"],
-      ["북서울꿈의숲 전망 산책","강북","공원","100분","보통","오전","넓은 공원과 월영지, 전망대를 이어 걷는 한적한 주말 코스","https://map.naver.com/p/search/북서울꿈의숲","#457B9D"],
-      ["반포대교 달빛 산책","서초","야경","70분","쉬움","저녁","세빛섬에서 달빛무지개분수까지 이어지는 반짝이는 강변 산책","https://map.naver.com/p/search/반포한강공원","#9B5DE5"],
-      ["연남동 경의선숲길","마포","카페","75분","쉬움","오후","도심 숲길과 작은 가게, 카페를 가볍게 이어 보는 느긋한 코스","https://map.naver.com/p/search/경의선숲길","#00B4D8"],
-      ["낙산공원 성곽길","종로","전망","110분","보통","노을","성곽을 따라 서울의 지붕과 노을을 내려다보는 오르막 산책","https://map.naver.com/p/search/낙산공원","#E63946"]
-    ].map(toWalk);
-    let walks = fallback;
-    let selected = "전체";
+function parseTime(value) {
+  const parts = String(value).split(':');
+  return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+}
 
-    function toWalk(row){ return {name:row[0],district:row[1],theme:row[2],duration:row[3],difficulty:row[4],best:row[5],description:row[6],map:row[7],accent:row[8]||"#E76F51"}; }
-    function escapeHTML(value){ const div=document.createElement("div"); div.textContent=value||""; return div.innerHTML; }
-    function parseCSV(text){
-      const rows=[]; let row=[],cell="",quoted=false;
-      for(let i=0;i<text.length;i++){ const ch=text[i],next=text[i+1];
-        if(ch==='"'&&quoted&&next==='"'){cell+='"';i++;}
-        else if(ch==='"'){quoted=!quoted;}
-        else if(ch===','&&!quoted){row.push(cell.trim());cell="";}
-        else if((ch==='\n'||ch==='\r')&&!quoted){if(ch==='\r'&&next==='\n')i++;row.push(cell.trim());if(row.some(Boolean))rows.push(row);row=[];cell="";}
-        else cell+=ch;
+function courseFromRow(row) {
+  const meetings = (row.course_meetings || [])
+    .map((m) => ({
+      id: m.id,
+      weekday: m.weekday,
+      periodCodes: m.period_codes,
+      startMinutes: parseTime(m.start_time),
+      endMinutes: parseTime(m.end_time),
+      room: m.room || '',
+    }))
+    .sort((a, b) => a.weekday - b.weekday || a.startMinutes - b.startMinutes);
+  return {
+    id: row.id,
+    classNumber: row.class_number,
+    name: row.course_name,
+    professor: row.professor || '',
+    department: row.department || '',
+    credits: Number(row.credits ?? 0),
+    rawSchedule: row.raw_schedule || '',
+    meetings,
+    grade: row.grade ?? 0,
+    completionType: row.completion_type || '',
+    category: row.category || '',
+    deliveryMethod: row.delivery_method || '',
+  };
+}
+
+function isOnline(course) {
+  const text = [course.professor, course.rawSchedule, course.deliveryMethod, course.category, course.department]
+    .join(' ')
+    .toLowerCase();
+  return text.includes('이러닝') || text.includes('k-mooc') || text.includes('kmooc') || course.department.includes('가상대학');
+}
+
+function isMilitaryCredit(course) {
+  return course.name.includes('[군학점]') || course.name.includes('［군학점］');
+}
+
+const repo = {
+  async search(year, semester, query, limit = 60) {
+    const params = [
+      ['select', '*,course_meetings(*)'],
+      ['academic_year', `eq.${year}`],
+      ['semester', `eq.${semester}`],
+    ];
+    const cleaned = query.replace(/[%(),.]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (cleaned) {
+      params.push(['or', `(course_name.ilike.*${cleaned}*,professor.ilike.*${cleaned}*,class_number.ilike.*${cleaned}*)`]);
+    }
+    params.push(['order', 'course_name'], ['limit', String(limit)]);
+    const rows = await rest('courses', params);
+    return rows.map(courseFromRow).filter((c) => !isMilitaryCredit(c));
+  },
+
+  async getDepartments(year, semester) {
+    const values = new Set();
+    const pageSize = 1000;
+    for (let offset = 0; offset < 5000; offset += pageSize) {
+      const rows = await rest('courses', [
+        ['select', 'department'],
+        ['academic_year', `eq.${year}`],
+        ['semester', `eq.${semester}`],
+        ['order', 'department'],
+        ['limit', String(pageSize)],
+        ['offset', String(offset)],
+      ]);
+      for (const row of rows) {
+        const value = (row.department || '').trim();
+        if (
+          value &&
+          !value.includes('�') &&
+          value !== '제주대학교 교양' &&
+          value !== '제주대학교 교양(야간)' &&
+          value !== '제주대학교 가상대학' &&
+          !value.includes('교직(사범)')
+        ) values.add(value);
       }
-      row.push(cell.trim()); if(row.some(Boolean))rows.push(row); return rows;
+      if (rows.length < pageSize) break;
     }
-    function csvToWalks(text){
-      const rows=parseCSV(text),headers=rows.shift()||[];
-      const index=name=>headers.indexOf(name), value=(row,name)=>row[index(name)]||"";
-      return rows.filter(row=>value(row,"이름")).map(row=>({name:value(row,"이름"),district:value(row,"지역"),theme:value(row,"테마"),duration:value(row,"소요시간"),difficulty:value(row,"난이도"),best:value(row,"추천시간"),description:value(row,"한줄소개"),map:value(row,"지도링크"),accent:value(row,"포인트색상")||"#E76F51"}));
+    return [...values].sort();
+  },
+
+  async getDepartmentCourses(year, semester, department) {
+    if (!department) return [];
+    const rows = await rest('courses', [
+      ['select', '*,course_meetings(*)'],
+      ['academic_year', `eq.${year}`],
+      ['semester', `eq.${semester}`],
+      ['department', `eq.${department}`],
+      ['completion_type', 'in.("전공","전공필수")'],
+      ['order', 'completion_type.desc'],
+      ['order', 'course_name'],
+      ['limit', '1000'],
+    ]);
+    return rows.map(courseFromRow).filter((c) => c.credits > 0);
+  },
+
+  async getGeneralCourseCandidates(year, semester) {
+    const generalRows = [];
+    for (const type of ['기초교양', '핵심교양', 'JNU소양', '교양', '일반선택']) {
+      const rows = await rest('courses', [
+        ['select', '*,course_meetings(*)'],
+        ['academic_year', `eq.${year}`],
+        ['semester', `eq.${semester}`],
+        ['completion_type', `eq.${type}`],
+        ['order', 'course_name'],
+        ['limit', '1000'],
+      ]);
+      generalRows.push(...rows);
     }
-    function render(){
-      const themes=["전체",...new Set(walks.map(w=>w.theme))];
-      document.getElementById("filters").innerHTML=themes.map(theme=>`<button class="${selected===theme?"active":""}" data-theme="${escapeHTML(theme)}" aria-pressed="${selected===theme}">${escapeHTML(theme)}</button>`).join("");
-      document.querySelectorAll("[data-theme]").forEach(button=>button.addEventListener("click",()=>{selected=button.dataset.theme;render();}));
-      const visible=selected==="전체"?walks:walks.filter(w=>w.theme===selected);
-      document.getElementById("grid").innerHTML=visible.map((w,i)=>`<article class="card" style="--accent:${escapeHTML(w.accent)}"><div class="card-top"><span>${String(i+1).padStart(2,"0")}</span><span>${escapeHTML(w.district)} · ${escapeHTML(w.theme)}</span></div><div class="card-route"><span></span><i></i><span></span></div><h3>${escapeHTML(w.name)}</h3><p>${escapeHTML(w.description)}</p><dl><div><dt>시간</dt><dd>${escapeHTML(w.duration)}</dd></div><div><dt>난이도</dt><dd>${escapeHTML(w.difficulty)}</dd></div><div><dt>추천</dt><dd>${escapeHTML(w.best)}</dd></div></dl><a class="map" href="${escapeHTML(w.map)}" target="_blank" rel="noreferrer">지도에서 보기 <span>↗</span></a></article>`).join("");
-      document.getElementById("count").textContent=walks.length;
+    const specialNames = DOUBLE_LISTED_NAMES.map((n) => `"${n}"`).join(',');
+    const specialRows = await rest('courses', [
+      ['select', '*,course_meetings(*)'],
+      ['academic_year', `eq.${year}`],
+      ['semester', `eq.${semester}`],
+      ['course_name', `in.(${specialNames})`],
+      ['order', 'course_name'],
+      ['limit', '1000'],
+    ]);
+    const courses = new Map();
+    for (const row of [...specialRows, ...generalRows]) {
+      const course = courseFromRow(row);
+      if (course.credits > 0 && !isMilitaryCredit(course)) courses.set(course.id, course);
     }
-    async function syncSheet(){
-      const button=document.getElementById("refreshButton"),status=document.getElementById("statusText"),dot=document.getElementById("dot");
-      button.disabled=true; status.textContent="Google Sheets 확인 중"; dot.className="dot";
-      try { const response=await fetch(`${CSV_URL}&cache=${Date.now()}`,{cache:"no-store"}); if(!response.ok)throw new Error(); const data=csvToWalks(await response.text()); if(!data.length)throw new Error(); walks=data; status.textContent="Google Sheets 연결됨"; dot.className="dot live"; }
-      catch(error){ walks=fallback; status.textContent="기본 목록 표시 중"; dot.className="dot fallback"; }
-      button.disabled=false; render();
+    return [...courses.values()];
+  },
+};
+
+/* ============================================================
+ * 학점 인정 로직 (course_credit_recognition.dart 포팅)
+ * ============================================================ */
+const BUCKET = {
+  generalBasic: 'generalBasic',
+  generalCore: 'generalCore',
+  generalOther: 'generalOther',
+  majorRequired: 'majorRequired',
+  majorElective: 'majorElective',
+  generalElective: 'generalElective',
+  unknown: 'unknown',
+};
+const BASIC_AREAS = [
+  ['writing', '글쓰기'],
+  ['logic', '논리적사고'],
+  ['language', '외국어'],
+  ['software', '소프트웨어'],
+];
+const CORE_GROUPS = [
+  ['humanities', '언어·역사·인간'],
+  ['science', '자연·과학'],
+  ['jnu', 'JNU소양'],
+];
+const DOUBLE_LISTED = {
+  '텍스트마이닝입문': { legacyArea: '문제탐구', currentArea: '과학과기술' },
+  '사회복지학개론': { legacyArea: '문제탐구', currentArea: '인간과사회' },
+  '사회복지기술실천론': { legacyArea: '의사소통', currentArea: '인간과사회' },
+};
+const DOUBLE_LISTED_NAMES = Object.keys(DOUBLE_LISTED);
+
+function basicAreaKey(category, courseName) {
+  const value = (category + ' ' + courseName).replace(/\s+/g, '');
+  if (value.includes('글쓰기')) return 'writing';
+  if (value.includes('논리') || value.includes('책읽기와토론')) return 'logic';
+  if (['외국어', '영어', '일본어', '중국어', '독일어', '프랑스어', '한국어'].some((k) => value.includes(k))) return 'language';
+  if (['소프트웨어', 'AI', '컴퓨팅', '코딩', '프로그래밍'].some((k) => value.includes(k))) return 'software';
+  return null;
+}
+
+function coreGroupKey(category) {
+  const value = category.replace(/\s+/g, '');
+  if (['언어와문화', '역사와철학', '인간과사회'].some((k) => value.includes(k))) return 'humanities';
+  if (['자연과환경', '과학과기술'].some((k) => value.includes(k))) return 'science';
+  if (['건강과예술', '제주의이해', '진로와전공설계'].some((k) => value.includes(k))) return 'jnu';
+  return null;
+}
+
+function withArea(label, area) { return area ? `${label} · ${area}` : label; }
+
+function resolveRecognition(course, admissionYear) {
+  const special = DOUBLE_LISTED[course.name];
+  if (special) {
+    const area = admissionYear >= 2025 ? special.currentArea : special.legacyArea;
+    return {
+      bucket: BUCKET.generalCore,
+      label: admissionYear >= 2025 ? `핵심교양 · ${area}` : `핵심역량교양 · ${area}`,
+      basicAreaKey: null,
+      coreGroupKey: admissionYear >= 2025 ? coreGroupKey(special.currentArea) : null,
+    };
+  }
+  const type = course.completionType.replace(/ /g, '');
+  const category = course.category.trim();
+  if (type.includes('전공필수')) return { bucket: BUCKET.majorRequired, label: '전공필수', basicAreaKey: null, coreGroupKey: null };
+  if (type === '전공') return { bucket: BUCKET.majorElective, label: '전공선택', basicAreaKey: null, coreGroupKey: null };
+  if (type.includes('기초교양') || type.includes('기초역량교양')) {
+    return {
+      bucket: BUCKET.generalBasic,
+      label: admissionYear >= 2025 ? withArea('기초교양', category) : withArea('기초역량교양', category),
+      basicAreaKey: basicAreaKey(category, course.name),
+      coreGroupKey: null,
+    };
+  }
+  if (type.includes('핵심교양') || type.includes('핵심역량교양')) {
+    return {
+      bucket: BUCKET.generalCore,
+      label: admissionYear >= 2025 ? withArea('핵심교양', category) : withArea('핵심역량교양', category),
+      basicAreaKey: null,
+      coreGroupKey: admissionYear >= 2025 ? coreGroupKey(category) : null,
+    };
+  }
+  if (type === 'JNU소양') {
+    return {
+      bucket: admissionYear >= 2025 ? BUCKET.generalCore : BUCKET.generalOther,
+      label: admissionYear >= 2025 ? withArea('JNU소양', category) : withArea('일반교양', category),
+      basicAreaKey: null,
+      coreGroupKey: admissionYear >= 2025 ? 'jnu' : null,
+    };
+  }
+  if (type.includes('교양')) return { bucket: BUCKET.generalOther, label: withArea('교양', category), basicAreaKey: null, coreGroupKey: null };
+  if (type === '일반선택') return { bucket: BUCKET.generalElective, label: '일반선택', basicAreaKey: null, coreGroupKey: null };
+  return { bucket: BUCKET.unknown, label: course.completionType, basicAreaKey: null, coreGroupKey: null };
+}
+
+/* ============================================================
+ * 학과별 졸업요건 카탈로그 (academic_rule_catalog.dart 포팅)
+ * (졸업학점, 전공학점)
+ * ============================================================ */
+const RULES_2022 = {
+  '국어국문학과': [130, 69], '영어영문학과': [130, 69], '독일학과': [130, 78], '일어일문학과': [130, 78],
+  '중어중문학과': [130, 72], '사학과': [130, 72], '사회학과': [130, 72], '철학과': [130, 69],
+  '행정학과': [130, 78], '정치외교학과': [130, 78], '언론홍보학과': [130, 72], '경영학과': [130, 69],
+  '관광경영학과': [130, 69], '회계학과': [130, 78], '무역학과': [130, 69], '경제학과': [130, 69],
+  '관광개발학과': [130, 69], '경영정보학과': [140, 84], '국어교육과': [150, 75], '영어교육과': [140, 75],
+  '사회교육과': [150, 78], '지리교육과': [140, 75], '윤리교육과': [140, 78], '수학교육과': [140, 75],
+  '물리교육전공': [140, 75], '생물교육전공': [150, 75], '컴퓨터교육과': [140, 84], '체육교육과': [150, 75],
+  '식물자원환경전공': [130, 69], '원예환경전공': [130, 69], '바이오소재전공': [130, 72], '분자생명공학전공': [130, 72],
+  '동물생명공학전공': [130, 72], '바이오메디컬정보학과': [130, 78], '산업응용경제학과': [130, 68],
+  '해양생명과학과': [130, 66], '수산생명의학과': [130, 72], '해양산업경찰학과': [130, 78], '지구해양과학과': [130, 75],
+  '환경공학과': [130, 72], '토목공학과': [130, 75], '해양시스템공학과': [130, 75], '물리학과': [130, 75],
+  '생물학과': [130, 72], '화학코스메틱스학과': [130, 69], '식품영양학과': [130, 69], '수학과': [130, 69],
+  '데이터사이언스학과': [140, 84], '아동생활복지전공': [130, 69], '주거가족복지전공': [130, 69],
+  '패션의류학과': [130, 69], '체육학과': [130, 72], '식품생명공학과': [130, 72], '건축공학전공': [130, 78],
+  '건축학전공': [160, 120], '기계시스템공학과': [130, 78], '통신공학과': [130, 78], '전기에너지공학과': [140, 84],
+  '전자공학과': [130, 72], '화학공학과': [130, 78], '컴퓨터공학전공': [140, 84], '인공지능전공': [140, 84],
+  '컴퓨터공학과': [140, 84], '초등교육과': [143, 91], '의예과': [82, 38], '의학과': [170, 170],
+  '수의예과': [81, 30], '수의학과': [160, 160], '간호학과': [140, 100], '작곡성악피아노전공': [130, 75],
+  '관현악전공': [130, 75], '미술학과': [130, 78], '융합디자인학과': [130, 78], '건강뷰티향장학과': [130, 63],
+  '관광융복합학과': [130, 63], '부동산관리학과': [130, 63], '실버케어복지학과': [130, 63], '약학과': [220, 190],
+};
+const OVERRIDES_2021 = {
+  '국어교육과': [150, 75], '영어교육과': [150, 75], '일반사회교육전공': [150, 78], '지리교육전공': [150, 75],
+  '윤리교육과': [150, 75], '수학교육과': [150, 75], '물리교육전공': [150, 75], '생물교육전공': [150, 75],
+  '컴퓨터교육과': [150, 84], '체육교육과': [150, 75], '해양생명과학과': [130, 75], '전산통계학과': [140, 84],
+  '통신공학전공': [130, 78], '전기공학전공': [130, 72], '기계공학전공': [130, 78], '메카트로닉스공학전공': [130, 78],
+  '에너지공학전공': [130, 72], '생명화학공학전공': [130, 78],
+};
+const OVERRIDES_2023 = {
+  '물리교육전공': [130, 67], '체육교육과': [140, 75], '물리학과': [130, 72], '간호학과': [140, 106],
+};
+const OVERRIDES_2024 = {
+  ...OVERRIDES_2023,
+  '국어교육과': [140, 75], '사회교육과': [140, 78], '생물교육전공': [140, 78], '스포츠과학과': [130, 72],
+};
+const RULES_2026 = {
+  '국어국문학과': [130, 69], '영어영문학과': [130, 69], '독일학과': [130, 72], '일어일문학과': [130, 72],
+  '중어중문학과': [130, 72], '사학과': [130, 72], '사회학과': [130, 72], '철학과': [130, 69],
+  '행정학과': [130, 72], '정치외교학과': [130, 72], '언론홍보학과': [130, 72], '경제학과': [130, 63],
+  '경영학과': [130, 69], '관광경영학과': [130, 69], '회계학과': [130, 72], '무역학과': [130, 72],
+  '관광개발학과': [130, 66], '경영정보학과': [130, 72], '국어교육과': [140, 75], '영어교육과': [140, 75],
+  '사회교육과': [140, 75], '지리교육과': [140, 75], '윤리교육과': [140, 78], '수학교육과': [140, 75],
+  '물리교육전공': [140, 67], '생물교육전공': [140, 78], '컴퓨터교육과': [130, 72], '체육교육과': [140, 75],
+  '식물자원환경전공': [130, 63], '원예과학전공': [130, 69], '바이오소재전공': [130, 72], '분자생명공학전공': [130, 72],
+  '동물생명공학전공': [130, 72], '바이오메디컬정보학과': [130, 72], '산업응용경제학과': [130, 68],
+  '해양산업경찰학과': [130, 72], '해양생명과학과': [130, 66], '지구해양과학과': [130, 69], '수산생명의학과': [130, 72],
+  '해양시스템공학과': [130, 72], '환경공학과': [130, 72], '물리학과': [130, 72], '생물학과': [130, 69],
+  '화학코스메틱스학과': [130, 69], '식품영양학과': [130, 69], '수학과': [130, 69], '생활환경복지학과': [130, 69],
+  '아동생활복지전공': [130, 69], '주거가족복지전공': [130, 69], '데이터사이언스학과': [130, 72],
+  '패션의류학과': [130, 65], '스포츠과학과': [130, 72], '식품생명공학과': [130, 72], '기계시스템공학과': [130, 72],
+  '통신공학과': [130, 72], '전기공학과': [130, 72], '원자력공학과': [130, 69], '전자공학과': [130, 72],
+  '화공그린에너지학과': [130, 72], '컴퓨터공학과': [130, 72], '인공지능학과': [130, 69], '건축공학과': [130, 72],
+  '건축학과': [160, 120], '토목공학과': [130, 72], '의예과': [76, 43], '의학과': [170, 170],
+  '초등교육학부': [143, 95], '초등교육과': [143, 95], '수의예과': [81, 30], '수의학과': [160, 160],
+  '간호학과': [140, 106], '작곡전공': [130, 75], '성악전공': [130, 75], '피아노전공': [130, 75],
+  '관현악전공': [130, 75], '미술학과': [130, 78], '공업디자인전공': [130, 60], '문화공예디자인전공': [130, 60],
+  '시각영상디자인전공': [130, 60], '융합디자인학과': [130, 78], '건강뷰티향장학과': [120, 54],
+  '관광융복합학과': [120, 60], '부동산관리학과': [120, 54], '실버케어복지학과': [120, 60], '약학과': [220, 190],
+};
+
+function normalizeDepartment(value) {
+  return value.replace(/\s+/g, '').replaceAll('소프트웨어학부', '').replaceAll('공과대학', '').replaceAll('·', '');
+}
+
+function resolveRule(admissionYear, department) {
+  const normalized = normalizeDepartment(department);
+  if (admissionYear >= 2021 && admissionYear <= 2024) {
+    const rules = { ...RULES_2022 };
+    if (admissionYear === 2021) Object.assign(rules, OVERRIDES_2021);
+    if (admissionYear === 2023) Object.assign(rules, OVERRIDES_2023);
+    if (admissionYear === 2024) Object.assign(rules, OVERRIDES_2024);
+    const matches = Object.entries(rules)
+      .filter(([key]) => normalized.includes(key))
+      .sort((a, b) => b[0].length - a[0].length);
+    const major = matches[0]?.[1] ?? null;
+    const isComputer = normalized.includes('컴퓨터공학전공') || normalized.includes('컴퓨터공학과');
+    return {
+      admissionYear,
+      sourceLabel: `${admissionYear}학년도 신입생 수강편람`,
+      isVerified: major !== null,
+      basicLabel: '기초역량교양', coreLabel: '핵심역량교양', otherGeneralLabel: '일반교양',
+      graduationCredits: major?.[0] ?? 130,
+      generalMinimum: 30, basicMinimum: 0, coreMinimum: 20, otherGeneralMinimum: 0,
+      majorMinimum: major?.[1] ?? 0,
+      majorRequiredMinimum: isComputer ? 12 : 0,
+    };
+  }
+  if (admissionYear >= 2025) {
+    const major = Object.entries(RULES_2026).find(([key]) => normalized.includes(key))?.[1] ?? null;
+    return {
+      admissionYear,
+      sourceLabel: `${admissionYear}학년도 신입생 수강편람`,
+      isVerified: major !== null,
+      basicLabel: '기초교양', coreLabel: '핵심교양·JNU소양', otherGeneralLabel: '기타교양',
+      graduationCredits: major?.[0] ?? 130,
+      generalMinimum: 26, basicMinimum: 12, coreMinimum: 14, otherGeneralMinimum: 0,
+      majorMinimum: major?.[1] ?? 0,
+      majorRequiredMinimum: 0,
+    };
+  }
+  return {
+    admissionYear, sourceLabel: `${admissionYear}학번 수강편람`, isVerified: false,
+    basicLabel: '기초역량교양', coreLabel: '핵심역량교양', otherGeneralLabel: '일반교양',
+    graduationCredits: 0, generalMinimum: 0, basicMinimum: 0, coreMinimum: 0,
+    otherGeneralMinimum: 0, majorMinimum: 0, majorRequiredMinimum: 0,
+  };
+}
+
+/* ============================================================
+ * 추천 엔진 (smart_timetable_engine.dart 포팅)
+ * ============================================================ */
+const STRATEGIES = ['balanced', 'majorFirst', 'requirementsFirst', 'scheduleFirst'];
+
+const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+const courseKey = (course) => course.name.toLowerCase().replace(/\s+/g, '');
+const remaining = (target, completed, current) => clamp(target - completed - current, 0, 250);
+
+function statusGeneralCompleted(s) { return s.generalBasicCompleted + s.generalCoreCompleted + s.generalOtherCompleted; }
+function statusGeneralCurrent(s) { return s.generalBasicCurrent + s.generalCoreCurrent + s.generalOtherCurrent; }
+
+function gapMinutes(courses) {
+  let total = 0;
+  for (let weekday = 1; weekday <= 7; weekday++) {
+    const meetings = courses
+      .flatMap((c) => c.meetings)
+      .filter((m) => m.weekday === weekday)
+      .sort((a, b) => a.startMinutes - b.startMinutes);
+    for (let i = 1; i < meetings.length; i++) {
+      total += clamp(meetings[i].startMinutes - meetings[i - 1].endMinutes, 0, 24 * 60);
     }
-    document.getElementById("refreshButton").addEventListener("click",syncSheet);
-    render(); syncSheet();
-  </script>
+  }
+  return total;
+}
+
+function conflictsWithSelected(course, selected) {
+  return selected.some((other) =>
+    course.meetings.some((m) =>
+      other.meetings.some((o) => m.weekday === o.weekday && m.startMinutes < o.endMinutes && o.startMinutes < m.endMinutes)
+    )
+  );
+}
+
+function remainingSemesters(status) {
+  return clamp((4 - status.currentGrade) * 2 + (status.currentSemester === 1 ? 2 : 1), 1, 8);
+}
+function termShare(remainingCredits, semesters) {
+  if (remainingCredits <= 0) return 0;
+  return Math.ceil(remainingCredits / semesters / 3) * 3;
+}
+
+function requirementCoverageScore(courses, status, strategy) {
+  let majorCredits = 0, majorRequiredCredits = 0, majorElectiveCredits = 0;
+  let basicCredits = 0, coreCredits = 0, otherGeneralCredits = 0;
+  const selectedBasicAreas = new Set(), selectedCoreGroups = new Set();
+  for (const course of courses) {
+    const rec = resolveRecognition(course, status.admissionYear);
+    switch (rec.bucket) {
+      case BUCKET.majorRequired: majorRequiredCredits += course.credits; majorCredits += course.credits; break;
+      case BUCKET.majorElective: majorCredits += course.credits; majorElectiveCredits += course.credits; break;
+      case BUCKET.generalBasic:
+        basicCredits += course.credits;
+        if (rec.basicAreaKey) selectedBasicAreas.add(rec.basicAreaKey);
+        break;
+      case BUCKET.generalCore:
+        coreCredits += course.credits;
+        if (rec.coreGroupKey) selectedCoreGroups.add(rec.coreGroupKey);
+        break;
+      case BUCKET.generalOther: otherGeneralCredits += course.credits; break;
+    }
+  }
+  const majorRemaining = remaining(status.majorTotalTarget,
+    status.majorRequiredCompleted + status.majorElectiveCompleted,
+    status.majorRequiredCurrent + status.majorElectiveCurrent);
+  const majorRequiredRemaining = remaining(status.majorRequiredTarget, status.majorRequiredCompleted, status.majorRequiredCurrent);
+  const basicRemaining = remaining(status.generalBasicTarget, status.generalBasicCompleted, status.generalBasicCurrent);
+  const coreRemaining = remaining(status.generalCoreTarget, status.generalCoreCompleted, status.generalCoreCurrent);
+  const generalRemaining = remaining(status.generalTarget, statusGeneralCompleted(status), statusGeneralCurrent(status));
+  const majorElectiveRemaining = remaining(status.majorElectiveTarget, status.majorElectiveCompleted, status.majorElectiveCurrent);
+  const semesters = remainingSemesters(status);
+  const termMajorRequired = termShare(majorRequiredRemaining, semesters);
+  const termMajorElective = termShare(majorElectiveRemaining, semesters);
+  const termCore = termShare(coreRemaining, semesters);
+
+  let score;
+  switch (strategy) {
+    case 'balanced':
+      score = clamp(majorRequiredCredits, 0, termMajorRequired) * 700 +
+        clamp(majorElectiveCredits, 0, termMajorElective) * 550 +
+        clamp(coreCredits, 0, termCore) * 650 +
+        clamp(majorCredits, 0, majorRemaining) * 70;
+      break;
+    case 'majorFirst':
+      score = clamp(majorRequiredCredits, 0, majorRequiredRemaining) * 750 +
+        clamp(majorElectiveCredits, 0, majorElectiveRemaining) * 600 +
+        clamp(coreCredits, 0, coreRemaining) * 120;
+      break;
+    case 'requirementsFirst':
+      score = clamp(majorRequiredCredits, 0, majorRequiredRemaining) * 600 +
+        clamp(majorElectiveCredits, 0, majorElectiveRemaining) * 300 +
+        clamp(basicCredits, 0, basicRemaining) * 900 +
+        clamp(coreCredits, 0, coreRemaining) * 1200;
+      break;
+    default: // scheduleFirst
+      score = clamp(majorRequiredCredits, 0, majorRequiredRemaining) * 100 +
+        clamp(majorElectiveCredits, 0, majorElectiveRemaining) * 80 +
+        clamp(basicCredits, 0, basicRemaining) * 100 +
+        clamp(coreCredits, 0, coreRemaining) * 100;
+  }
+  score += clamp(basicCredits + coreCredits + otherGeneralCredits, 0, generalRemaining) * 60;
+
+  for (const area of selectedBasicAreas) {
+    if (!status.completedGeneralBasicAreas.includes(area)) score += 300;
+  }
+  if (status.admissionYear >= 2025) {
+    for (const group of selectedCoreGroups) {
+      if (!status.completedGeneralCoreGroups.includes(group)) score += 300;
+    }
+  }
+  return score;
+}
+
+function buildPlan(courses, credits, preferences, status, strategy, preferredCourseIds) {
+  const weekdays = new Set(courses.flatMap((c) => c.meetings).map((m) => m.weekday));
+  const gaps = gapMinutes(courses);
+  const creditDifference = Math.abs(preferences.targetCredits - credits);
+  let score = 10000 - creditDifference * 1200;
+  const scheduleFirst = strategy === 'scheduleFirst';
+  if (preferences.minimizeDays) score -= weekdays.size * (scheduleFirst ? 320 : 140);
+  if (preferences.minimizeGaps) score -= gaps * (scheduleFirst ? 3 : 1.5);
+  score += requirementCoverageScore(courses, status, strategy);
+
+  const majorRemaining = () => remaining(status.majorTotalTarget,
+    status.majorRequiredCompleted + status.majorElectiveCompleted,
+    status.majorRequiredCurrent + status.majorElectiveCurrent);
+
+  for (const course of courses) {
+    const rec = resolveRecognition(course, status.admissionYear);
+    if (preferences.preferOnline && isOnline(course)) score += 80;
+    if (preferredCourseIds.has(course.id)) score += 450;
+    if (rec.bucket === BUCKET.majorRequired) {
+      score += majorRemaining() > 0 ? 90 : 25;
+    } else if (rec.bucket === BUCKET.majorElective) {
+      score += majorRemaining() > 0 ? 60 : 10;
+    } else if (rec.bucket === BUCKET.generalBasic) {
+      score += remaining(status.generalBasicTarget, status.generalBasicCompleted, status.generalBasicCurrent) > 0 ? 70 : -120;
+      if (rec.basicAreaKey && !status.completedGeneralBasicAreas.includes(rec.basicAreaKey)) score += 100;
+    } else if (rec.bucket === BUCKET.generalCore) {
+      score += remaining(status.generalCoreTarget, status.generalCoreCompleted, status.generalCoreCurrent) > 0 ? 65 : 8;
+      if (status.admissionYear >= 2025 && rec.coreGroupKey && !status.completedGeneralCoreGroups.includes(rec.coreGroupKey)) score += 100;
+    } else if (rec.bucket === BUCKET.generalOther) {
+      score += remaining(status.generalTarget, statusGeneralCompleted(status), statusGeneralCurrent(status)) > 0 ? 55 : 5;
+    } else if (rec.bucket === BUCKET.generalElective) {
+      score += remaining(status.generalElectiveTarget, status.generalElectiveCompleted, status.generalElectiveCurrent) > 0 ? 35 : 0;
+    }
+    if (status.department && course.department.includes(status.department)) score += 20;
+    const priority =
+      rec.bucket === BUCKET.majorRequired || rec.bucket === BUCKET.majorElective ? preferences.majorPriority :
+      rec.bucket === BUCKET.generalBasic || rec.bucket === BUCKET.generalCore || rec.bucket === BUCKET.generalOther ? preferences.generalPriority :
+      rec.bucket === BUCKET.generalElective ? preferences.generalElectivePriority : 3;
+    score += (priority - 3) * 110;
+  }
+  return { courses: [...courses], credits, dayCount: weekdays.size, gapMinutes: gaps, score, strategy };
+}
+
+function searchPriority(course, status, strategy) {
+  const rec = resolveRecognition(course, status.admissionYear);
+  const missingBasicArea = rec.basicAreaKey != null && !status.completedGeneralBasicAreas.includes(rec.basicAreaKey);
+  const missingCore = rec.bucket === BUCKET.generalCore &&
+    remaining(status.generalCoreTarget, status.generalCoreCompleted, status.generalCoreCurrent) > 0;
+  const missingMajorRequired = rec.bucket === BUCKET.majorRequired &&
+    remaining(status.majorRequiredTarget, status.majorRequiredCompleted, status.majorRequiredCurrent) > 0;
+  const missingMajor = (rec.bucket === BUCKET.majorRequired || rec.bucket === BUCKET.majorElective) &&
+    remaining(status.majorTotalTarget,
+      status.majorRequiredCompleted + status.majorElectiveCompleted,
+      status.majorRequiredCurrent + status.majorElectiveCurrent) > 0;
+  const missingBasicCredits = rec.bucket === BUCKET.generalBasic &&
+    remaining(status.generalBasicTarget, status.generalBasicCompleted, status.generalBasicCurrent) > 0;
+
+  const b = rec.bucket;
+  switch (strategy) {
+    case 'balanced':
+      if (b === BUCKET.majorRequired && missingMajorRequired) return 5000;
+      if (b === BUCKET.majorElective && missingMajor) return 4500;
+      if (b === BUCKET.generalCore && missingCore) return 4000;
+      if (b === BUCKET.generalBasic && missingBasicArea) return 4000;
+      if (b === BUCKET.generalBasic && missingBasicCredits) return 3000;
+      return 0;
+    case 'majorFirst':
+      if (b === BUCKET.majorRequired && missingMajorRequired) return 5000;
+      if (b === BUCKET.majorElective && missingMajor) return 4500;
+      if (b === BUCKET.generalCore && missingCore) return 3000;
+      if (b === BUCKET.generalBasic && missingBasicArea) return 3000;
+      return 0;
+    case 'requirementsFirst':
+      if (b === BUCKET.generalBasic && missingBasicArea) return 5000;
+      if (b === BUCKET.generalCore && missingCore) return 4800;
+      if (b === BUCKET.majorRequired && missingMajorRequired) return 4500;
+      if (b === BUCKET.majorElective && missingMajor) return 3500;
+      return 0;
+    default: // scheduleFirst
+      if (b === BUCKET.majorRequired && missingMajorRequired) return 3000;
+      if (b === BUCKET.majorElective && missingMajor) return 2800;
+      if (b === BUCKET.generalCore && missingCore) return 2600;
+      if (b === BUCKET.generalBasic && missingBasicArea) return 2600;
+      return 0;
+  }
+}
+
+function sectionFit(course, selected, preferences, preferredCourseIds) {
+  const courses = [...selected, course];
+  const dayCount = new Set(courses.flatMap((c) => c.meetings).map((m) => m.weekday)).size;
+  let score = preferredCourseIds.has(course.id) ? 10000 : 0;
+  if (preferences.preferOnline && isOnline(course)) score += 1000;
+  if (preferences.minimizeDays) score -= dayCount * 200;
+  if (preferences.minimizeGaps) score -= gapMinutes(courses);
+  return score;
+}
+
+function containsAllRequired(selected, requiredCourseKeys) {
+  const selectedKeys = new Set(selected.map(courseKey));
+  for (const key of requiredCourseKeys) if (!selectedKeys.has(key)) return false;
+  return true;
+}
+
+function uniquePlans(plans, limit) {
+  const unique = new Map();
+  for (const plan of plans) {
+    const key = plan.courses.map((c) => c.id).sort().join('|');
+    if (!unique.has(key)) unique.set(key, plan);
+    if (unique.size >= limit) break;
+  }
+  return [...unique.values()];
+}
+
+function generateWithBeam({ groups, requiredCourseIds, requiredCourseKeys, preferences, creditStatus, strategy, preferredCourseIds, limit }) {
+  let states = [{ courses: [], credits: 0, score: 0 }];
+  const statesPerCredit = 8;
+  for (const group of groups) {
+    const required = group.filter((c) => requiredCourseIds.has(c.id));
+    const next = [];
+    for (const state of states) {
+      if (required.length === 0) next.push(state);
+      const pool = required.length === 0 ? group : required;
+      const compatible = pool
+        .filter((c) => state.credits + c.credits <= preferences.targetCredits + 0.01 && !conflictsWithSelected(c, state.courses))
+        .map((c) => ({ course: c, score: sectionFit(c, state.courses, preferences, preferredCourseIds) }))
+        .sort((a, b) => b.score - a.score);
+      for (const choice of compatible.slice(0, 3)) {
+        const course = choice.course;
+        const credits = state.credits + course.credits;
+        const courses = [...state.courses, course];
+        next.push({
+          courses, credits,
+          score: buildPlan(courses, credits, preferences, creditStatus, strategy, preferredCourseIds).score,
+        });
+      }
+    }
+    const byCredits = new Map();
+    for (const state of next) {
+      const key = Math.round(state.credits * 2);
+      if (!byCredits.has(key)) byCredits.set(key, []);
+      byCredits.get(key).push(state);
+    }
+    states = [];
+    for (const bucket of byCredits.values()) {
+      bucket.sort((a, b) => b.score - a.score);
+      states.push(...bucket.slice(0, statesPerCredit));
+    }
+    if (states.length === 0) return [];
+  }
+  const minimumCredits = clamp(preferences.targetCredits - 2, 1, 24);
+  const plans = states
+    .filter((s) => s.credits >= minimumCredits && containsAllRequired(s.courses, requiredCourseKeys))
+    .map((s) => buildPlan(s.courses, s.credits, preferences, creditStatus, strategy, preferredCourseIds))
+    .sort((a, b) => b.score - a.score);
+  return uniquePlans(plans, limit);
+}
+
+function generatePlans({ candidates, requiredCourseIds, preferences, creditStatus, preferredCourseIds, strategy, limit = 5 }) {
+  const eligible = candidates.filter((course) => {
+    if (isMilitaryCredit(course)) return false;
+    if (!requiredCourseIds.has(course.id) && course.credits <= 0) return false;
+    if (course.meetings.length === 0 && !isOnline(course)) return false;
+    return course.meetings.every(
+      (m) => !preferences.excludedWeekdays.includes(m.weekday) &&
+        m.startMinutes >= preferences.earliestStartMinutes &&
+        m.endMinutes <= preferences.latestEndMinutes
+    );
+  });
+  const grouped = new Map();
+  for (const course of eligible) {
+    const key = courseKey(course);
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(course);
+  }
+  const groups = [...grouped.values()].sort(
+    (a, b) => searchPriority(b[0], creditStatus, strategy) - searchPriority(a[0], creditStatus, strategy)
+  );
+  const requiredCourseKeys = new Set(eligible.filter((c) => requiredCourseIds.has(c.id)).map(courseKey));
+  if (groups.length > 28) {
+    return generateWithBeam({ groups, requiredCourseIds, requiredCourseKeys, preferences, creditStatus, strategy, preferredCourseIds, limit });
+  }
+
+  const plans = [];
+  const maxCollectedPlans = 2500;
+  const maxVisitedNodes = 200000;
+  let visitedNodes = 0;
+
+  function search(index, selected, credits) {
+    visitedNodes++;
+    if (visitedNodes > maxVisitedNodes) return;
+    if (plans.length >= maxCollectedPlans) return;
+    if (credits > preferences.targetCredits + 0.01) return;
+    if (index === groups.length) {
+      if (!containsAllRequired(selected, requiredCourseKeys)) return;
+      if (credits < clamp(preferences.targetCredits - 2, 1, 24)) return;
+      plans.push(buildPlan(selected, credits, preferences, creditStatus, strategy, preferredCourseIds));
+      return;
+    }
+    const group = groups[index];
+    const required = group.filter((c) => requiredCourseIds.has(c.id));
+    for (const course of required.length === 0 ? group : required) {
+      if (conflictsWithSelected(course, selected)) continue;
+      search(index + 1, [...selected, course], credits + course.credits);
+    }
+    if (required.length === 0) search(index + 1, selected, credits);
+  }
+  search(0, [], 0);
+  plans.sort((a, b) => b.score - a.score);
+  return uniquePlans(plans, limit);
+}
+
+/* 후보 정렬용 교양 우선순위 (smart_timetable_page.dart의 _generalPriority) */
+function generalCandidatePriority(course, status) {
+  const rec = resolveRecognition(course, status.admissionYear);
+  const missingAreaBonus = rec.basicAreaKey != null && !status.completedGeneralBasicAreas.includes(rec.basicAreaKey) ? 100 : 0;
+  const missingCoreGroupBonus =
+    status.admissionYear >= 2025 && rec.coreGroupKey != null && !status.completedGeneralCoreGroups.includes(rec.coreGroupKey) ? 100 : 0;
+  let bucketScore;
+  switch (rec.bucket) {
+    case BUCKET.generalBasic:
+      bucketScore = status.generalBasicTarget - status.generalBasicCompleted - status.generalBasicCurrent; break;
+    case BUCKET.generalCore:
+      bucketScore = status.generalCoreTarget - status.generalCoreCompleted - status.generalCoreCurrent; break;
+    case BUCKET.generalOther:
+      bucketScore = status.generalTarget - statusGeneralCompleted(status) - statusGeneralCurrent(status); break;
+    default: bucketScore = -100;
+  }
+  return missingAreaBonus + missingCoreGroupBonus + bucketScore;
+}
+
+/* ============================================================
+ * 상태 & 저장 (localStorage)
+ * ============================================================ */
+const STORAGE_KEY = 'next.timetable-helper.v1';
+const CURRENT_YEAR = new Date().getFullYear();
+
+const defaultCreditStatus = () => ({
+  admissionYear: 2022, currentGrade: 1, currentSemester: 1, department: '',
+  graduationCredits: 130, generalTarget: 26,
+  generalBasicTarget: 10, generalBasicCompleted: 0, generalBasicCurrent: 0,
+  completedGeneralBasicAreas: [], completedGeneralCoreGroups: [],
+  generalCoreTarget: 20, generalCoreCompleted: 0, generalCoreCurrent: 0,
+  generalOtherTarget: 0, generalOtherCompleted: 0, generalOtherCurrent: 0,
+  majorTotalTarget: 0, majorRequiredTarget: 0, majorRequiredCompleted: 0, majorRequiredCurrent: 0,
+  majorElectiveTarget: 0, majorElectiveCompleted: 0, majorElectiveCurrent: 0,
+  generalElectiveTarget: 0, generalElectiveCompleted: 0, generalElectiveCurrent: 0,
+});
+
+const defaultPreferences = () => ({
+  academicYear: 2026, semester: 1, targetCredits: 18,
+  excludedWeekdays: [], earliestStartMinutes: 9 * 60, latestEndMinutes: 18 * 60,
+  minimizeDays: true, minimizeGaps: true, preferOnline: false,
+  majorPriority: 3, generalPriority: 3, generalElectivePriority: 3,
+});
+
+const state = {
+  step: 0,
+  creditStatus: defaultCreditStatus(),
+  preferences: defaultPreferences(),
+  completedCourses: [],
+  requiredCourses: [],
+  preferredCourses: [],
+  excludedCourses: [],
+  savedPlan: null,
+  completed: false,
+  candidates: [],
+  candidatesKey: '',
+  departments: [],
+  plans: [],
+  selectedPlanIndex: 0,
+  generating: false,
+  error: '',
+};
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      creditStatus: state.creditStatus,
+      preferences: state.preferences,
+      completedCourses: state.completedCourses,
+      requiredCourses: state.requiredCourses,
+      preferredCourses: state.preferredCourses,
+      excludedCourses: state.excludedCourses,
+      savedPlan: state.savedPlan,
+    }));
+  } catch (_) { /* 저장 실패는 무시 */ }
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    state.creditStatus = { ...defaultCreditStatus(), ...(data.creditStatus || {}) };
+    state.preferences = { ...defaultPreferences(), ...(data.preferences || {}) };
+    state.completedCourses = data.completedCourses || [];
+    state.requiredCourses = data.requiredCourses || [];
+    state.preferredCourses = data.preferredCourses || [];
+    state.excludedCourses = data.excludedCourses || [];
+    state.savedPlan = data.savedPlan || null;
+    if (state.savedPlan) { state.completed = true; state.step = 5; }
+  } catch (_) { /* 손상된 저장값은 무시 */ }
+}
+
+const nameKey = (value) => value.toLowerCase().replace(/\s+/g, '');
+
+/* ============================================================
+ * 후보 강의 로딩
+ * ============================================================ */
+async function ensureCandidates() {
+  const s = state.creditStatus, p = state.preferences;
+  if (!s.department) { state.candidates = []; return; }
+  const key = `${p.academicYear}|${p.semester}|${s.department}|${s.admissionYear}`;
+  if (state.candidatesKey === key && state.candidates.length > 0) return;
+  const [majors, general] = await Promise.all([
+    repo.getDepartmentCourses(p.academicYear, p.semester, s.department),
+    repo.getGeneralCourseCandidates(p.academicYear, p.semester),
+  ]);
+  general.sort((a, b) => generalCandidatePriority(b, s) - generalCandidatePriority(a, s));
+  const pinned = [...state.requiredCourses, ...state.preferredCourses];
+  const merged = new Map();
+  for (const course of [...pinned, ...majors, ...general]) merged.set(course.id, course);
+  state.candidates = [...merged.values()];
+  state.candidatesKey = key;
+}
+
+function eligibleCandidates() {
+  const completedNames = new Set(state.completedCourses.map((c) => nameKey(c.name)));
+  const excludedIds = new Set(state.excludedCourses.map((c) => c.id));
+  return state.candidates.filter((c) => !completedNames.has(nameKey(c.name)) && !excludedIds.has(c.id));
+}
+
+function automaticRequiredCourses() {
+  return eligibleCandidates().filter(
+    (c) => c.credits > 0 && resolveRecognition(c, state.creditStatus.admissionYear).bucket === BUCKET.majorRequired
+  );
+}
+
+/* ============================================================
+ * 추천 생성
+ * ============================================================ */
+async function runGenerate() {
+  state.generating = true;
+  state.error = '';
+  render();
+  try {
+    await ensureCandidates();
+    if (state.candidates.length === 0) {
+      state.error = '현재 조건에 맞는 개설 강의를 불러오지 못했습니다.';
+      return false;
+    }
+    const eligible = eligibleCandidates();
+    const requiredIds = new Set([
+      ...state.requiredCourses.map((c) => c.id),
+      ...automaticRequiredCourses().map((c) => c.id),
+    ]);
+    const preferredIds = new Set(state.preferredCourses.map((c) => c.id));
+    const plans = [];
+    const planKeys = new Set();
+    for (const strategy of STRATEGIES) {
+      // 렌더링 여유를 줘서 스피너가 멈추지 않게 한다
+      await new Promise((r) => setTimeout(r, 10));
+      const candidates = generatePlans({
+        candidates: eligible,
+        requiredCourseIds: requiredIds,
+        preferences: state.preferences,
+        creditStatus: state.creditStatus,
+        preferredCourseIds: preferredIds,
+        strategy,
+      });
+      for (const plan of candidates) {
+        const key = plan.courses.map((c) => c.id).sort().join('|');
+        if (!planKeys.has(key)) { planKeys.add(key); plans.push(plan); break; }
+      }
+    }
+    state.plans = plans;
+    state.selectedPlanIndex = 0;
+    if (plans.length === 0) {
+      state.error = '현재 조건으로 만들 수 있는 조합이 없습니다. 조건을 조정해주세요.';
+      return false;
+    }
+    return true;
+  } catch (err) {
+    state.error = err.message || '추천 시간표를 계산하지 못했습니다.';
+    return false;
+  } finally {
+    state.generating = false;
+  }
+}
+
+/* ============================================================
+ * UI 헬퍼
+ * ============================================================ */
+const $ = (sel, root = document) => root.querySelector(sel);
+const el = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstChild; };
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const creditLabel = (v) => Number.isInteger(v) ? String(v) : v.toFixed(1);
+const WEEKDAY_NAMES = ['', '월', '화', '수', '목', '금', '토', '일'];
+const minutesLabel = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+
+function gapLabel(minutes) {
+  if (minutes < 60) return `${minutes}분`;
+  const hours = Math.floor(minutes / 60);
+  const rem = minutes % 60;
+  return rem === 0 ? `${hours}시간` : `${hours}시간 ${rem}분`;
+}
+
+function scheduleLabel(course) {
+  if (course.meetings.length === 0) return isOnline(course) ? '온라인' : '시간 미정';
+  return course.meetings
+    .map((m) => `${WEEKDAY_NAMES[m.weekday]} ${minutesLabel(m.startMinutes)}~${minutesLabel(m.endMinutes)}${m.room ? ' · ' + m.room : ''}`)
+    .join(' / ');
+}
+
+const BLOCK_COLORS = ['#5B7A99', '#7A996B', '#99765B', '#7A5B99', '#5B9992', '#995B6E', '#8A8A5B', '#5B6E99', '#996B5B', '#6B8A99'];
+
+function timetableHTML(courses) {
+  const meetings = courses.flatMap((c, i) => c.meetings.map((m) => ({ ...m, course: c, colorIndex: i })));
+  const hasWeekend = meetings.some((m) => m.weekday >= 6);
+  const days = hasWeekend ? [1, 2, 3, 4, 5, 6, 7] : [1, 2, 3, 4, 5];
+  let minStart = 9 * 60, maxEnd = 18 * 60;
+  for (const m of meetings) {
+    minStart = Math.min(minStart, Math.floor(m.startMinutes / 60) * 60);
+    maxEnd = Math.max(maxEnd, Math.ceil(m.endMinutes / 60) * 60);
+  }
+  const hourHeight = 44;
+  const height = ((maxEnd - minStart) / 60) * hourHeight;
+  let html = `<div class="tt-wrap"><div class="tt" style="grid-template-columns:34px repeat(${days.length},1fr)">`;
+  html += '<div></div>';
+  for (const d of days) html += `<div class="h">${WEEKDAY_NAMES[d]}</div>`;
+  html += `<div class="timecol" style="height:${height}px">`;
+  for (let t = minStart; t <= maxEnd; t += 60) {
+    html += `<div class="t" style="top:${((t - minStart) / 60) * hourHeight}px">${Math.floor(t / 60)}</div>`;
+  }
+  html += '</div>';
+  for (const d of days) {
+    html += `<div class="daycol" style="height:${height}px">`;
+    for (let t = minStart + 60; t < maxEnd; t += 60) {
+      html += `<div class="hline" style="top:${((t - minStart) / 60) * hourHeight}px"></div>`;
+    }
+    for (const m of meetings.filter((m) => m.weekday === d)) {
+      const top = ((m.startMinutes - minStart) / 60) * hourHeight;
+      const blockHeight = ((m.endMinutes - m.startMinutes) / 60) * hourHeight - 1.5;
+      const color = BLOCK_COLORS[m.colorIndex % BLOCK_COLORS.length];
+      html += `<div class="block" style="top:${top}px;height:${blockHeight}px;background:${color}">
+        <div class="bn">${esc(m.course.name)}</div>
+        ${m.room ? `<div class="br">${esc(m.room)}</div>` : ''}
+      </div>`;
+    }
+    html += '</div>';
+  }
+  html += '</div></div>';
+  // 온라인/시간미정 강의 표시
+  const timeless = courses.filter((c) => c.meetings.length === 0);
+  if (timeless.length > 0) {
+    html += `<div class="row" style="border-top:0.5px solid var(--separator)"><div class="grow">
+      <div class="sub">시간 배정 없음 · ${timeless.map((c) => esc(c.name)).join(', ')}</div></div></div>`;
+  }
+  return html;
+}
+
+/* ============================================================
+ * 강의 검색 모달
+ * ============================================================ */
+function openCoursePicker(title, initialSelected, onDone) {
+  const selected = new Map(initialSelected.map((c) => [c.id, c]));
+  let results = [];
+  let searching = false;
+  let searchSeq = 0;
+
+  const mask = el(`<div class="modal-mask"><div class="modal">
+    <div class="m-head">
+      <button class="cancel">취소</button>
+      <h2>${esc(title)}</h2>
+      <button class="done">완료</button>
+    </div>
+    <div class="m-search"><input type="search" placeholder="강의명 · 교수명 · 과목번호 검색" autocomplete="off"></div>
+    <div class="m-body"></div>
+  </div></div>`);
+  document.getElementById('modalRoot').appendChild(mask);
+  const body = $('.m-body', mask);
+  const input = $('input', mask);
+
+  function renderList() {
+    const selectedList = [...selected.values()];
+    let html = '';
+    if (selectedList.length > 0) {
+      html += `<div class="section-h">선택됨 · ${selectedList.length}개</div><div class="card">`;
+      for (const c of selectedList) html += courseItemHTML(c, true);
+      html += '</div>';
+    }
+    html += `<div class="section-h">검색 결과</div>`;
+    if (searching) {
+      html += '<div class="center"><div class="spinner dark"></div></div>';
+    } else if (results.length === 0) {
+      html += '<div class="hint" style="padding:12px 4px">검색어를 입력해 강의를 찾아보세요.</div>';
+    } else {
+      html += '<div class="card">';
+      for (const c of results.filter((c) => !selected.has(c.id))) html += courseItemHTML(c, false);
+      html += '</div>';
+    }
+    body.innerHTML = html;
+    body.querySelectorAll('.course-item').forEach((item) => {
+      item.addEventListener('click', () => {
+        const id = item.dataset.id;
+        if (selected.has(id)) selected.delete(id);
+        else {
+          const course = results.find((c) => c.id === id) || initialSelected.find((c) => c.id === id);
+          if (course) selected.set(id, course);
+        }
+        renderList();
+      });
+    });
+  }
+
+  function courseItemHTML(c, isSelected) {
+    const rec = resolveRecognition(c, state.creditStatus.admissionYear);
+    const meta = [rec.label, c.professor, `${creditLabel(c.credits)}학점`].filter(Boolean).join(' · ');
+    return `<div class="course-item ${isSelected ? 'sel' : ''}" data-id="${esc(c.id)}">
+      <div class="check">${isSelected ? '✓' : ''}</div>
+      <div class="grow"><div class="name">${esc(c.name)}</div>
+      <div class="meta">${esc(meta)}</div>
+      <div class="meta">${esc(scheduleLabel(c))}</div></div>
+    </div>`;
+  }
+
+  let debounce;
+  input.addEventListener('input', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(async () => {
+      const query = input.value.trim();
+      const seq = ++searchSeq;
+      searching = true; renderList();
+      try {
+        const found = await repo.search(state.preferences.academicYear, state.preferences.semester, query);
+        if (seq !== searchSeq) return;
+        results = found;
+      } catch (err) {
+        if (seq !== searchSeq) return;
+        results = [];
+      }
+      searching = false; renderList();
+    }, 350);
+  });
+
+  $('.cancel', mask).addEventListener('click', () => mask.remove());
+  $('.done', mask).addEventListener('click', () => {
+    mask.remove();
+    onDone([...selected.values()]);
+  });
+  renderList();
+  input.focus();
+}
+
+/* ============================================================
+ * 선택 목록 적용 (앱과 동일한 상호 배제 규칙)
+ * ============================================================ */
+function applyCompleted(selected) {
+  const names = new Set(selected.map((c) => nameKey(c.name)));
+  const ids = new Set(selected.map((c) => c.id));
+  state.completedCourses = selected;
+  state.requiredCourses = state.requiredCourses.filter((c) => !names.has(nameKey(c.name)));
+  state.preferredCourses = state.preferredCourses.filter((c) => !ids.has(c.id) && !names.has(nameKey(c.name)));
+  state.plans = [];
+  saveState();
+}
+
+function applyRequired(selected) {
+  const ids = new Set(selected.map((c) => c.id));
+  state.requiredCourses = selected;
+  state.excludedCourses = state.excludedCourses.filter((c) => !ids.has(c.id));
+  mergePinnedIntoCandidates(selected);
+  state.plans = [];
+  saveState();
+}
+
+function applyPreferred(selected) {
+  const ids = new Set(selected.map((c) => c.id));
+  state.preferredCourses = selected;
+  state.excludedCourses = state.excludedCourses.filter((c) => !ids.has(c.id));
+  mergePinnedIntoCandidates(selected);
+  state.plans = [];
+  saveState();
+}
+
+function applyExcluded(selected) {
+  const ids = new Set(selected.map((c) => c.id));
+  state.excludedCourses = selected;
+  state.requiredCourses = state.requiredCourses.filter((c) => !ids.has(c.id));
+  state.preferredCourses = state.preferredCourses.filter((c) => !ids.has(c.id));
+  state.plans = [];
+  saveState();
+}
+
+function mergePinnedIntoCandidates(courses) {
+  const map = new Map(state.candidates.map((c) => [c.id, c]));
+  for (const course of courses) map.set(course.id, course);
+  state.candidates = [...map.values()];
+}
+
+/* ============================================================
+ * 스텝 렌더링
+ * ============================================================ */
+function creditInputRow(label, target, completedKey, currentKey) {
+  const s = state.creditStatus;
+  return `<div class="row">
+    <div class="grow"><div class="label">${esc(label)}</div></div>
+    <div class="val" style="width:36px;text-align:center">${target > 0 ? target : '-'}</div>
+    <input class="credit" type="number" min="0" max="250" inputmode="numeric" data-credit="${completedKey}" value="${s[completedKey]}">
+    <input class="credit" type="number" min="0" max="250" inputmode="numeric" data-credit="${currentKey}" value="${s[currentKey]}">
+  </div>`;
+}
+
+function applyRuleToStatus() {
+  const s = state.creditStatus;
+  const rule = resolveRule(s.admissionYear, s.department);
+  s.graduationCredits = rule.graduationCredits;
+  s.generalTarget = rule.generalMinimum;
+  s.generalBasicTarget = rule.basicMinimum;
+  s.generalCoreTarget = rule.coreMinimum;
+  s.generalOtherTarget = rule.otherGeneralMinimum;
+  s.majorTotalTarget = rule.majorMinimum;
+  s.majorRequiredTarget = rule.majorRequiredMinimum;
+  s.majorElectiveTarget = rule.majorRequiredMinimum > 0 ? clamp(rule.majorMinimum - rule.majorRequiredMinimum, 0, 250) : 0;
+}
+
+function stepAcademicHTML() {
+  const s = state.creditStatus;
+  const p = state.preferences;
+  const rule = resolveRule(s.admissionYear, s.department);
+  const departmentOptions = state.departments
+    .map((d) => `<option value="${esc(d)}" ${d === s.department ? 'selected' : ''}>${esc(d)}</option>`)
+    .join('');
+  return `
+    <div class="step-title">학업 정보</div>
+    <div class="step-sub">추천할 학기와 현재 학업 현황을 입력합니다.</div>
+
+    <div class="section-h">학적</div>
+    <div class="card">
+      <div class="row"><div class="grow label">학번</div>
+        <select data-set="admissionYear">
+          ${[2021, 2022, 2023, 2024, 2025, 2026].map((y) => `<option value="${y}" ${y === s.admissionYear ? 'selected' : ''}>${y}학번</option>`).join('')}
+        </select>
+      </div>
+      <div class="row"><div class="grow label">수강 예정 학년</div>
+        <div class="seg" style="width:216px">${[1, 2, 3, 4, 5, 6].map((g) => `<button data-grade="${g}" class="${g === s.currentGrade ? 'on' : ''}">${g}</button>`).join('')}</div>
+      </div>
+      <div class="row"><div class="grow label">수강 예정 학기</div>
+        <div class="seg" style="width:150px">${[1, 2].map((sem) => `<button data-cs-semester="${sem}" class="${sem === s.currentSemester ? 'on' : ''}">${sem}학기</button>`).join('')}</div>
+      </div>
+      <div class="row"><div class="grow label">학과·전공</div>
+        <select data-set="department" style="max-width:230px">
+          <option value="">선택</option>${departmentOptions}
+        </select>
+      </div>
+      <div class="row"><div class="grow label">졸업 기준</div>
+        <div class="val">${rule.graduationCredits > 0 ? rule.graduationCredits + '학점' : '-'}</div>
+      </div>
+    </div>
+    ${!rule.isVerified ? `<div class="hint">${s.department ? `${s.admissionYear}학번의 해당 학과 기준은 아직 검증되지 않았습니다.` : '학과를 선택하면 수강편람 기준학점을 불러옵니다.'}</div>` : ''}
+
+    <div class="section-h">기초교양 필수 분야</div>
+    <div class="card">
+      ${BASIC_AREAS.map(([key, label]) => `
+        <div class="row"><div class="grow label">${key === 'software' && s.admissionYear >= 2025 ? '소프트웨어·AI' : label}</div>
+          <label class="switch"><input type="checkbox" data-basic-area="${key}" ${s.completedGeneralBasicAreas.includes(key) ? 'checked' : ''}><i></i></label>
+        </div>`).join('')}
+    </div>
+    <div class="hint">${s.admissionYear <= 2024 ? '2021~2024학번은 네 분야에서 각각 1과목 이상 이수해야 합니다.' : '각 분야에서 1과목 이상 이수해야 합니다.'}</div>
+
+    ${s.admissionYear >= 2025 ? `
+    <div class="section-h">핵심교양·JNU소양 필수 묶음</div>
+    <div class="card">
+      ${CORE_GROUPS.map(([key, label]) => `
+        <div class="row"><div class="grow label">${label}</div>
+          <label class="switch"><input type="checkbox" data-core-group="${key}" ${s.completedGeneralCoreGroups.includes(key) ? 'checked' : ''}><i></i></label>
+        </div>`).join('')}
+    </div>
+    <div class="hint">각 묶음에서 1과목 이상 이수해야 합니다.</div>` : ''}
+
+    <div class="section-h">이수 현황 · ${esc(rule.sourceLabel)}</div>
+    <div class="card">
+      <div class="row" style="min-height:34px;padding-top:8px;padding-bottom:4px">
+        <div class="grow"></div>
+        <div class="val" style="width:36px;text-align:center;font-size:12px">기준</div>
+        <div class="val" style="width:56px;text-align:center;font-size:12px">기이수</div>
+        <div class="val" style="width:56px;text-align:center;font-size:12px">수강 중</div>
+      </div>
+      ${creditInputRow(rule.basicLabel, rule.basicMinimum, 'generalBasicCompleted', 'generalBasicCurrent')}
+      ${creditInputRow(rule.coreLabel, rule.coreMinimum, 'generalCoreCompleted', 'generalCoreCurrent')}
+      ${creditInputRow(rule.otherGeneralLabel, rule.otherGeneralMinimum, 'generalOtherCompleted', 'generalOtherCurrent')}
+      <div class="row"><div class="grow label">교양 합계</div><div class="val">${rule.generalMinimum > 0 ? rule.generalMinimum + '학점' : '-'}</div></div>
+      ${creditInputRow('전공필수', rule.majorRequiredMinimum, 'majorRequiredCompleted', 'majorRequiredCurrent')}
+      ${creditInputRow('전공선택', rule.majorRequiredMinimum > 0 ? clamp(rule.majorMinimum - rule.majorRequiredMinimum, 0, 250) : 0, 'majorElectiveCompleted', 'majorElectiveCurrent')}
+      <div class="row"><div class="grow label">전공 합계</div><div class="val">${rule.majorMinimum > 0 ? rule.majorMinimum + '학점' : '-'}</div></div>
+      ${creditInputRow('일반선택', 0, 'generalElectiveCompleted', 'generalElectiveCurrent')}
+    </div>
+
+    <div class="section-h">추천 학기</div>
+    <div class="card">
+      <div class="row"><div class="grow label">대상 연도</div>
+        <div class="stepper">
+          <button data-step-pref="academicYear:-1" ${p.academicYear <= 2024 ? 'disabled' : ''}>−</button>
+          <div class="num">${p.academicYear}</div>
+          <button data-step-pref="academicYear:1" ${p.academicYear >= CURRENT_YEAR + 1 ? 'disabled' : ''}>＋</button>
+        </div>
+      </div>
+      <div class="row"><div class="grow label">대상 학기</div>
+        <div class="seg" style="width:200px">
+          ${[[1, '1학기'], [2, '2학기'], [3, '계절']].map(([v, l]) => `<button data-pref-semester="${v}" class="${v === p.semester ? 'on' : ''}">${l}</button>`).join('')}
+        </div>
+      </div>
+      <div class="row"><div class="grow label">목표학점</div>
+        <div class="stepper">
+          <button data-step-pref="targetCredits:-1" ${p.targetCredits <= 12 ? 'disabled' : ''}>−</button>
+          <div class="num">${p.targetCredits}</div>
+          <button data-step-pref="targetCredits:1" ${p.targetCredits >= 24 ? 'disabled' : ''}>＋</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function bindStepAcademic(root) {
+  root.querySelectorAll('[data-set]').forEach((select) => {
+    select.addEventListener('change', () => {
+      const key = select.dataset.set;
+      if (key === 'admissionYear') state.creditStatus.admissionYear = parseInt(select.value, 10);
+      else state.creditStatus[key] = select.value;
+      applyRuleToStatus();
+      if (key === 'department') { state.candidatesKey = ''; }
+      saveState(); render();
+    });
+  });
+  root.querySelectorAll('[data-grade]').forEach((btn) => btn.addEventListener('click', () => {
+    state.creditStatus.currentGrade = parseInt(btn.dataset.grade, 10); saveState(); render();
+  }));
+  root.querySelectorAll('[data-cs-semester]').forEach((btn) => btn.addEventListener('click', () => {
+    state.creditStatus.currentSemester = parseInt(btn.dataset.csSemester, 10); saveState(); render();
+  }));
+  root.querySelectorAll('[data-basic-area]').forEach((input) => input.addEventListener('change', () => {
+    const key = input.dataset.basicArea;
+    const set = new Set(state.creditStatus.completedGeneralBasicAreas);
+    input.checked ? set.add(key) : set.delete(key);
+    state.creditStatus.completedGeneralBasicAreas = [...set].sort();
+    saveState();
+  }));
+  root.querySelectorAll('[data-core-group]').forEach((input) => input.addEventListener('change', () => {
+    const key = input.dataset.coreGroup;
+    const set = new Set(state.creditStatus.completedGeneralCoreGroups);
+    input.checked ? set.add(key) : set.delete(key);
+    state.creditStatus.completedGeneralCoreGroups = [...set].sort();
+    saveState();
+  }));
+  root.querySelectorAll('[data-credit]').forEach((input) => input.addEventListener('change', () => {
+    state.creditStatus[input.dataset.credit] = clamp(parseInt(input.value, 10) || 0, 0, 250);
+    saveState();
+  }));
+  root.querySelectorAll('[data-step-pref]').forEach((btn) => btn.addEventListener('click', () => {
+    const [key, delta] = btn.dataset.stepPref.split(':');
+    const p = state.preferences;
+    const next = p[key] + parseInt(delta, 10);
+    if (key === 'academicYear') p.academicYear = clamp(next, 2024, CURRENT_YEAR + 1);
+    if (key === 'targetCredits') p.targetCredits = clamp(next, 12, 24);
+    onTermMaybeChanged(); saveState(); render();
+  }));
+  root.querySelectorAll('[data-pref-semester]').forEach((btn) => btn.addEventListener('click', () => {
+    state.preferences.semester = parseInt(btn.dataset.prefSemester, 10);
+    onTermMaybeChanged(); saveState(); render();
+  }));
+}
+
+function onTermMaybeChanged() {
+  // 학기/연도가 바뀌면 후보와 결과를 초기화
+  state.candidatesKey = '';
+  state.candidates = [];
+  state.plans = [];
+}
+
+function courseListHTML(courses) {
+  if (courses.length === 0) return '';
+  return `<div class="card">${courses.map((c) => `
+    <div class="row"><div class="grow"><div class="label">${esc(c.name)}</div></div>
+    <div class="val">${creditLabel(c.credits)}학점</div></div>`).join('')}</div>`;
+}
+
+function stepCompletedHTML() {
+  return `
+    <div class="step-title">이수한 강의</div>
+    <div class="step-sub">이미 들은 강의는 추천 후보에서 제외됩니다.</div>
+    <div class="notice">웹 버전에서는 포털 연동을 지원하지 않아요. 이수한 강의를 직접 검색해 추가해주세요.</div>
+    <div class="card">
+      <div class="row"><div class="grow label" style="font-weight:600">이수한 강의</div>
+        <div class="val">${state.completedCourses.length}개</div></div>
+      <div class="row tappable" data-action="edit-completed" style="justify-content:center;color:var(--text)">
+        <span style="font-weight:600">✎ 직접 선택</span>
+      </div>
+    </div>
+    ${state.completedCourses.length > 0 ? `<div style="margin-top:12px">${courseListHTML(state.completedCourses)}</div>` : ''}`;
+}
+
+function filterRowHTML(label, count, action) {
+  return `<div class="row ${action ? 'tappable' : ''}" ${action ? `data-action="${action}"` : ''}>
+    <div class="grow"><div class="label">${label}</div>
+    <div class="sub">${count === 0 ? '선택 안 함' : count + '개 강의'}</div></div>
+    ${action ? '<span class="chev">편집 ›</span>' : ''}
+  </div>`;
+}
+
+function stepPickHTML() {
+  const autoCount = automaticRequiredCourses().length;
+  return `
+    <div class="step-title">강의 직접 선택</div>
+    <div class="step-sub">꼭 듣고 싶은 강의와 제외할 강의를 정합니다.</div>
+    <div class="card">
+      ${filterRowHTML('전공필수 자동 포함', autoCount, null)}
+      ${filterRowHTML('반드시 포함', state.requiredCourses.length, 'edit-required')}
+      ${filterRowHTML('가능하면 포함', state.preferredCourses.length, 'edit-preferred')}
+      ${filterRowHTML('제외할 강의', state.excludedCourses.length, 'edit-excluded')}
+    </div>
+    ${state.requiredCourses.length > 0 ? `
+      <div class="section-h">반드시 포함</div>${courseListHTML(state.requiredCourses)}` : ''}`;
+}
+
+function priorityHTML(label, key) {
+  const value = state.preferences[key];
+  return `<div class="row"><div class="grow label">${label}</div>
+    <div class="prio">${[1, 2, 3, 4, 5].map((v) => `<button data-prio="${key}:${v}" class="${v === value ? 'on' : ''}">${v}</button>`).join('')}</div>
+  </div>`;
+}
+
+function stepPriorityHTML() {
+  return `
+    <div class="step-title">추천 우선순위</div>
+    <div class="step-sub">학점 배분에서 중요하게 볼 항목을 정합니다.</div>
+    <div class="card">
+      ${priorityHTML('전공 우선도', 'majorPriority')}
+      ${priorityHTML('교양 우선도', 'generalPriority')}
+      ${priorityHTML('일반 우선도', 'generalElectivePriority')}
+    </div>`;
+}
+
+function toggleRowHTML(label, key) {
+  return `<div class="row"><div class="grow label">${label}</div>
+    <label class="switch"><input type="checkbox" data-toggle="${key}" ${state.preferences[key] ? 'checked' : ''}><i></i></label>
+  </div>`;
+}
+
+function stepScheduleHTML() {
+  const p = state.preferences;
+  return `
+    <div class="step-title">시간 조건</div>
+    <div class="step-sub">수업이 가능한 요일과 시간대를 정합니다.</div>
+    <div class="card">
+      <div class="row" style="padding-bottom:2px"><div class="grow label">제외 요일</div></div>
+      <div class="daybtns">
+        ${['월', '화', '수', '목', '금', '토', '일'].map((d, i) =>
+          `<button data-day="${i + 1}" class="${p.excludedWeekdays.includes(i + 1) ? 'on' : ''}">${d}</button>`).join('')}
+      </div>
+      <div class="row"><div class="grow label">첫 수업</div>
+        <div class="seg" style="width:200px">${[9, 10, 11].map((h) =>
+          `<button data-start="${h}" class="${p.earliestStartMinutes === h * 60 ? 'on' : ''}">${h}시</button>`).join('')}</div>
+      </div>
+      <div class="row"><div class="grow label">마지막 수업</div>
+        <div class="seg" style="width:200px">${[17, 18, 19].map((h) =>
+          `<button data-end="${h}" class="${p.latestEndMinutes === h * 60 ? 'on' : ''}">${h}시</button>`).join('')}</div>
+      </div>
+      ${toggleRowHTML('등교일 최소화', 'minimizeDays')}
+      ${toggleRowHTML('공강 최소화', 'minimizeGaps')}
+      ${toggleRowHTML('온라인 강의 우선', 'preferOnline')}
+    </div>`;
+}
+
+function planCourseListHTML(plan) {
+  const courses = [...plan.courses].sort((a, b) => {
+    if (a.meetings.length === 0) return b.meetings.length === 0 ? 0 : 1;
+    if (b.meetings.length === 0) return -1;
+    const am = a.meetings[0], bm = b.meetings[0];
+    return am.weekday - bm.weekday || am.startMinutes - bm.startMinutes;
+  });
+  return courses.map((c) => {
+    const rec = resolveRecognition(c, state.creditStatus.admissionYear);
+    return `<div class="row"><div class="grow">
+      <div class="label" style="font-weight:600">${esc(c.name)}</div>
+      <div class="sub">${esc([rec.label, `${creditLabel(c.credits)}학점`, c.professor].filter(Boolean).join(' · '))}</div>
+      <div class="sub">${esc(scheduleLabel(c))}</div>
+    </div></div>`;
+  }).join('');
+}
+
+function stepResultHTML() {
+  const plans = state.plans;
+  let html = `
+    <div class="step-title">추천 결과</div>
+    <div class="step-sub">${state.preferences.targetCredits}학점을 기준으로 만든 시간표입니다.</div>`;
+  if (plans.length === 0) {
+    html += `<div class="notice">추천 결과가 없습니다. 이전 단계에서 조건을 조정해주세요.</div>`;
+    return html;
+  }
+  if (plans.length > 1) {
+    html += `<div class="seg" style="margin-bottom:14px">
+      ${plans.map((_, i) => `<button data-plan="${i}" class="${i === state.selectedPlanIndex ? 'on' : ''}">추천안 ${i + 1}</button>`).join('')}
+    </div>`;
+  }
+  const plan = plans[state.selectedPlanIndex];
+  html += `<div class="card">
+    <div class="row">
+      <div class="grow">
+        <div class="label" style="font-weight:700">추천안 ${state.selectedPlanIndex + 1}</div>
+        <div class="plan-meta">${creditLabel(plan.credits)}학점 · 주 ${plan.dayCount}일 · 공강 ${gapLabel(plan.gapMinutes)}</div>
+      </div>
+      <button class="btn-line" style="width:auto;height:38px;padding:0 16px" data-action="save-plan">저장</button>
+    </div>
+    ${timetableHTML(plan.courses)}
+    <div class="row" style="border-top:0.5px solid var(--separator)"><div class="grow label" style="font-weight:700">포함 강의</div></div>
+    ${planCourseListHTML(plan)}
+  </div>`;
+  return html;
+}
+
+function completionHTML() {
+  const courses = state.savedPlan || [];
+  return `
+    <div style="padding-top:26px">
+      <div class="done-icon">✓</div>
+      <div class="step-title" style="text-align:center">시간표 저장 완료</div>
+      <div class="step-sub" style="text-align:center">참고용 추천안으로 저장되었습니다.</div>
+      <div class="card">${timetableHTML(courses)}</div>
+      <div class="section-h">포함 강의</div>
+      ${courseListHTML(courses)}
+      <div style="margin-top:20px"><button class="btn-line" data-action="restart">다시 만들기</button></div>
+    </div>`;
+}
+
+/* ============================================================
+ * 메인 렌더
+ * ============================================================ */
+const STEP_COUNT = 6;
+
+function render() {
+  const main = document.getElementById('main');
+  const progress = document.getElementById('progress');
+  const bottomBar = document.getElementById('bottomBar');
+  const navLeft = document.getElementById('navLeft');
+  const navRight = document.getElementById('navRight');
+
+  // 진행 바
+  if (state.completed) {
+    progress.innerHTML = '';
+  } else {
+    progress.innerHTML = Array.from({ length: STEP_COUNT }, (_, i) =>
+      `<span class="${i <= state.step ? 'on' : ''}"></span>`).join('');
+  }
+
+  // 내비게이션 버튼
+  navLeft.textContent = state.step > 0 && !state.completed ? '‹ 이전' : '';
+  navLeft.disabled = !(state.step > 0 && !state.completed);
+  navRight.textContent = state.step === 5 && !state.completed ? '조건 수정' : '';
+  navRight.disabled = !(state.step === 5 && !state.completed);
+
+  // 본문
+  let html;
+  if (state.completed) {
+    html = completionHTML();
+  } else {
+    switch (state.step) {
+      case 0: html = stepAcademicHTML(); break;
+      case 1: html = stepCompletedHTML(); break;
+      case 2: html = stepPickHTML(); break;
+      case 3: html = stepPriorityHTML(); break;
+      case 4: html = stepScheduleHTML(); break;
+      default: html = stepResultHTML();
+    }
+  }
+  if (state.error) html = `<div class="err">${esc(state.error)}</div>` + html;
+  main.innerHTML = html;
+
+  // 하단 바
+  if (state.completed || state.step === 5) {
+    bottomBar.innerHTML = '';
+  } else {
+    const isLast = state.step === 4;
+    bottomBar.innerHTML = `<div class="bottom-bar">
+      ${state.step > 0 ? '<button class="btn-ghost" id="btnBack">이전</button>' : ''}
+      <button class="btn-primary" id="btnNext" ${state.generating ? 'disabled' : ''}>
+        ${state.generating ? '<div class="spinner"></div>' : (isLast ? '✦ 추천 시간표 만들기' : '다음')}
+      </button>
+    </div>`;
+    $('#btnBack')?.addEventListener('click', () => { state.step--; state.error = ''; render(); });
+    $('#btnNext')?.addEventListener('click', nextStep);
+  }
+
+  bindStepEvents(main);
+}
+
+function bindStepEvents(root) {
+  if (!state.completed && state.step === 0) bindStepAcademic(root);
+
+  root.querySelectorAll('[data-prio]').forEach((btn) => btn.addEventListener('click', () => {
+    const [key, value] = btn.dataset.prio.split(':');
+    state.preferences[key] = parseInt(value, 10);
+    saveState(); render();
+  }));
+  root.querySelectorAll('[data-day]').forEach((btn) => btn.addEventListener('click', () => {
+    const day = parseInt(btn.dataset.day, 10);
+    const set = new Set(state.preferences.excludedWeekdays);
+    set.has(day) ? set.delete(day) : set.add(day);
+    state.preferences.excludedWeekdays = [...set].sort();
+    saveState(); render();
+  }));
+  root.querySelectorAll('[data-start]').forEach((btn) => btn.addEventListener('click', () => {
+    state.preferences.earliestStartMinutes = parseInt(btn.dataset.start, 10) * 60;
+    saveState(); render();
+  }));
+  root.querySelectorAll('[data-end]').forEach((btn) => btn.addEventListener('click', () => {
+    state.preferences.latestEndMinutes = parseInt(btn.dataset.end, 10) * 60;
+    saveState(); render();
+  }));
+  root.querySelectorAll('[data-toggle]').forEach((input) => input.addEventListener('change', () => {
+    state.preferences[input.dataset.toggle] = input.checked;
+    saveState();
+  }));
+  root.querySelectorAll('[data-plan]').forEach((btn) => btn.addEventListener('click', () => {
+    state.selectedPlanIndex = parseInt(btn.dataset.plan, 10);
+    render();
+  }));
+  root.querySelectorAll('[data-action]').forEach((item) => item.addEventListener('click', () => {
+    const action = item.dataset.action;
+    if (action === 'edit-completed') openCoursePicker('이수한 강의', state.completedCourses, (sel) => { applyCompleted(sel); render(); });
+    if (action === 'edit-required') openCoursePicker('반드시 포함', state.requiredCourses, (sel) => { applyRequired(sel); render(); });
+    if (action === 'edit-preferred') openCoursePicker('가능하면 포함', state.preferredCourses, (sel) => { applyPreferred(sel); render(); });
+    if (action === 'edit-excluded') openCoursePicker('제외할 강의', state.excludedCourses, (sel) => { applyExcluded(sel); render(); });
+    if (action === 'save-plan') {
+      const plan = state.plans[state.selectedPlanIndex];
+      if (plan) {
+        state.savedPlan = plan.courses;
+        state.completed = true;
+        saveState(); render();
+        window.scrollTo(0, 0);
+      }
+    }
+    if (action === 'restart') {
+      state.completed = false;
+      state.step = 0;
+      state.plans = [];
+      state.selectedPlanIndex = 0;
+      render();
+      window.scrollTo(0, 0);
+    }
+  }));
+}
+
+async function nextStep() {
+  state.error = '';
+  if (state.step === 0) {
+    if (!state.creditStatus.department) {
+      state.error = '학과와 학업 정보를 먼저 설정해주세요.';
+      render();
+      return;
+    }
+    applyRuleToStatus();
+    saveState();
+  }
+  if (state.step === 1) {
+    // 후보를 미리 불러와 2단계에서 전공필수 자동 포함 개수를 보여준다
+    state.step = 2;
+    render();
+    try { await ensureCandidates(); } catch (_) { /* 실패 시 생성 단계에서 재시도 */ }
+    render();
+    return;
+  }
+  if (state.step < 4) {
+    state.step++;
+    render();
+    window.scrollTo(0, 0);
+    return;
+  }
+  // 마지막 입력 단계 → 생성
+  const ok = await runGenerate();
+  if (ok) { state.step = 5; window.scrollTo(0, 0); }
+  render();
+}
+
+document.getElementById('navLeft').addEventListener('click', () => {
+  if (state.step > 0 && !state.completed) { state.step--; state.error = ''; render(); }
+});
+document.getElementById('navRight').addEventListener('click', () => {
+  if (state.step === 5 && !state.completed) { state.step = 0; state.error = ''; render(); }
+});
+
+/* ============================================================
+ * 부팅
+ * ============================================================ */
+async function boot() {
+  loadState();
+  render();
+  try {
+    state.departments = await repo.getDepartments(state.preferences.academicYear, state.preferences.semester);
+  } catch (_) {
+    state.error = '학과 목록을 불러오지 못했습니다. 새로고침해주세요.';
+  }
+  render();
+}
+boot();
+</script>
 </body>
 </html>
