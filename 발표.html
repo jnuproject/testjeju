@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>시간표 도우미 — 발표</title>
+<title>제주대학교 스마트 시간표 도우미 — 기능 고도화 보고</title>
 <style>
 :root {
   --bg: #0F0F0F;
@@ -46,6 +46,25 @@ h2 { font-size: clamp(28px, 4.6vw, 58px); font-weight: 800; line-height: 1.15; l
 .lead { font-size: clamp(16px, 2vw, 24px); color: var(--muted); line-height: 1.6; margin-top: 3vh; max-width: 34em; }
 .presenter { margin-top: 6vh; font-size: clamp(15px, 1.8vw, 22px); color: var(--text); }
 .presenter .p-sub { color: var(--muted); font-size: 0.85em; margin-top: 0.6vh; }
+
+.cover-qr {
+  position: absolute;
+  right: 9vw;
+  top: 29vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(18vw, 230px);
+}
+.cover-qr a { display: block; line-height: 0; }
+.cover-qr img {
+  width: min(15vw, 190px);
+  aspect-ratio: 1;
+  background: #fff;
+  border-radius: 8px;
+}
+.cover-qr .qr-title { margin-top: 1.5vh; font-size: clamp(14px, 1.4vw, 18px); font-weight: 700; }
+.cover-qr .qr-url { margin-top: 0.7vh; color: var(--muted); font-size: clamp(10px, 0.9vw, 12px); }
 
 ul.points { list-style: none; display: flex; flex-direction: column; gap: 2.2vh; }
 ul.points li {
@@ -98,6 +117,54 @@ ul.points li .dim { color: var(--muted); font-size: 0.82em; }
 .stat .s-v { font-size: clamp(30px, 4.5vw, 56px); font-weight: 800; }
 .stat .s-l { color: var(--muted); font-size: clamp(12px, 1.3vw, 16px); margin-top: 0.5vh; }
 
+.report-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5vw; }
+.report-block {
+  min-height: 20vh; padding: 2.3vh 1.7vw;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+}
+.report-block .r-k { color: var(--muted); font-size: clamp(12px, 1.15vw, 15px); margin-bottom: 1.2vh; }
+.report-block .r-t { font-size: clamp(18px, 2vw, 26px); font-weight: 750; line-height: 1.35; }
+.report-block .r-d { color: var(--muted); font-size: clamp(13px, 1.35vw, 17px); line-height: 1.55; margin-top: 1.3vh; }
+
+.big-callout {
+  margin-top: 3.5vh; padding: 2.2vh 2vw; border-left: 4px solid var(--text);
+  background: rgba(255,255,255,0.05); font-size: clamp(18px, 2.2vw, 28px); line-height: 1.45;
+}
+
+.mini-list { display: flex; flex-direction: column; gap: 1.1vh; }
+.mini-row {
+  display: flex; align-items: center; gap: 1vw; min-height: 5.2vh;
+  padding: 1.1vh 1.2vw; border-bottom: 1px solid var(--line);
+  font-size: clamp(13px, 1.4vw, 18px);
+}
+.mini-row:last-child { border-bottom: 0; }
+.mini-row .tag {
+  min-width: 5.4em; color: var(--bg); background: var(--text); border-radius: 999px;
+  padding: 0.35em 0.75em; text-align: center; font-size: 0.78em; font-weight: 750;
+}
+.mini-row .desc { margin-left: auto; color: var(--muted); text-align: right; font-size: 0.86em; }
+
+.compare { display: grid; grid-template-columns: 1fr auto 1fr; gap: 2vw; align-items: stretch; }
+.compare .panel { padding: 2.5vh 2vw; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.compare .panel .c-h { font-size: clamp(18px, 2vw, 26px); font-weight: 800; margin-bottom: 2vh; }
+.compare .panel .c-r { color: var(--muted); font-size: clamp(14px, 1.5vw, 19px); line-height: 1.5; margin: 1.1vh 0; }
+.compare .to { align-self: center; color: var(--muted); font-size: clamp(24px, 3vw, 40px); }
+
+.plan-tabs { display: flex; gap: 0.7vw; margin-bottom: 1.5vh; }
+.plan-tabs span {
+  width: 2.4em; height: 2.4em; display: grid; place-items: center;
+  border-radius: 7px; background: var(--surface); border: 1px solid var(--line);
+  font-weight: 750; font-size: clamp(12px, 1.3vw, 16px);
+}
+.plan-tabs span.active { color: var(--bg); background: var(--text); }
+
+.swap-flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 1.3vw; }
+.swap-step { min-height: 23vh; padding: 2.2vh 1.5vw; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.swap-step .num { color: var(--muted); font-size: clamp(12px, 1.1vw, 14px); margin-bottom: 1vh; }
+.swap-step .title { font-weight: 800; font-size: clamp(17px, 1.8vw, 23px); line-height: 1.35; }
+.swap-step .body { color: var(--muted); font-size: clamp(13px, 1.3vw, 17px); line-height: 1.5; margin-top: 1.4vh; }
+.swap-arrow { color: var(--muted); font-size: clamp(20px, 2.4vw, 32px); }
+
 /* DB 스키마 다이어그램 */
 .schema { display: flex; gap: 2.4vw; align-items: flex-start; flex-wrap: wrap; margin-bottom: 3vh; }
 .dbtable {
@@ -124,6 +191,14 @@ ul.points li .dim { color: var(--muted); font-size: 0.82em; }
 .footer-note { position: fixed; bottom: 3.2vh; left: 50%; transform: translateX(-50%); color: var(--muted); font-size: 12px; }
 @media (max-width: 640px) {
   .grid.c2 { grid-template-columns: 1fr; }
+  .report-grid { grid-template-columns: 1fr; }
+  .compare { grid-template-columns: 1fr; }
+  .compare .to { display: none; }
+  .swap-flow { grid-template-columns: 1fr; }
+  .swap-arrow { display: none; }
+  .cover-qr { right: 7vw; top: auto; bottom: 11vh; width: 120px; }
+  .cover-qr img { width: 108px; }
+  .cover-qr .qr-url { display: none; }
   .slide { padding: 6vh 7vw; }
 }
 </style>
@@ -134,160 +209,209 @@ ul.points li .dim { color: var(--muted); font-size: 0.82em; }
 
   <!-- 1. 타이틀 -->
   <section class="slide">
-    <div class="eyebrow">Project</div>
-    <h1>시간표 도우미</h1>
-    <p class="lead">조건만 넣으면 졸업요건에 맞는 시간표를<br>추천해주는 웹 서비스</p>
+    <div class="eyebrow">2026 2학기 · 기능 고도화 보고</div>
+    <h1>제주대학교<br>스마트 시간표 도우미</h1>
+    <p class="lead">졸업요건과 생활 조건을 함께 반영해<br>비교 가능한 시간표를 제안하는 수강계획 지원 기능</p>
     <div class="presenter">
       제주대학교 컴퓨터공학과 22학번 <b>고예훈</b>
+    </div>
+    <div class="cover-qr">
+      <a href="https://jnuproject.github.io/testjeju" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+        <img src="./qr-code.png" alt="시간표 도우미 웹페이지 QR 코드">
+      </a>
+      <div class="qr-title">웹에서 열기</div>
+      <div class="qr-url">jnuproject.github.io/testjeju</div>
     </div>
   </section>
 
   <!-- 2. 문제 -->
   <section class="slide">
-    <div class="eyebrow">Problem</div>
-    <h2>수강신청 전날 밤,<br>모두가 겪는 일</h2>
-    <ul class="points">
-      <li>수강편람 엑셀을 뒤지며 <b>시간 안 겹치는 조합</b>을 손으로 맞추고</li>
-      <li>기초교양 분야, 전공필수, 졸업학점… <b>복잡한 졸업요건</b>은 따로 계산하고</li>
-      <li>몇 시간을 들여도 <b>"이게 최선인가?"</b>라는 확신이 없다</li>
-    </ul>
+    <div class="eyebrow">문제</div>
+    <h2>시간표를 짜는 일은<br>정보를 모으는 것부터 어렵습니다</h2>
+    <div class="report-grid">
+      <div class="report-block">
+        <div class="r-k">흩어진 정보</div>
+        <div class="r-t">강의 목록과 졸업요건을 따로 확인</div>
+        <div class="r-d">수강편람, 졸업자가진단, 기존 시간표를 번갈아 봐야 합니다.</div>
+      </div>
+      <div class="report-block">
+        <div class="r-k">반복되는 조합</div>
+        <div class="r-t">한 과목을 바꿀 때도 처음부터 다시</div>
+        <div class="r-d">시간 충돌과 공강을 다시 계산하며 여러 조합을 직접 만듭니다.</div>
+      </div>
+      <div class="report-block">
+        <div class="r-k">누락 위험</div>
+        <div class="r-t">필수 과목과 남은 학점을 놓치기 쉬움</div>
+        <div class="r-d">듣지 않은 필수 영역이나 이미 이수한 강의를 함께 확인해야 합니다.</div>
+      </div>
+    </div>
   </section>
 
-  <!-- 3. 소개 -->
+  <!-- 3. 목표 -->
   <section class="slide">
-    <div class="eyebrow">What it does</div>
-    <h2>조건을 넣으면,<br>시간표가 나온다</h2>
+    <div class="eyebrow">목표</div>
+    <h2>시간표를 대신 정하는 것이 아니라<br>선택할 근거를 제공합니다</h2>
+    <div class="flow" style="margin-top:1vh">
+      <div class="node"><div class="n-t">학업 현황</div><div class="n-s">남은 이수요건</div></div>
+      <div class="arrow">+</div>
+      <div class="node"><div class="n-t">듣고 싶은 강의</div><div class="n-s">포함 · 제외</div></div>
+      <div class="arrow">+</div>
+      <div class="node"><div class="n-t">생활 조건</div><div class="n-s">요일 · 시간 · 공강</div></div>
+      <div class="arrow">→</div>
+      <div class="node" style="border-color:var(--text)"><div class="n-t">추천안 4개</div><div class="n-s">비교하고 선택</div></div>
+    </div>
+    <div class="big-callout"><b>학생이 결정권을 유지한 채</b>, 놓치기 쉬운 조건을 함께 확인하는 도우미입니다.</div>
+  </section>
+
+  <!-- 4. 이용 흐름 -->
+  <section class="slide">
+    <div class="eyebrow">이용 흐름</div>
+    <h2>다섯 단계면<br>추천 준비가 끝납니다</h2>
+    <div class="steps-mock" style="width:min(76vw,920px)">
+      <div class="s"><span class="n">1</span> 학업 정보 <span class="d">학번 · 학과 · 현재 학기 · 이수 학점</span></div>
+      <div class="s"><span class="n">2</span> 이수한 강의 <span class="d">이미 들은 과목은 추천에서 제외</span></div>
+      <div class="s"><span class="n">3</span> 강의 직접 선택 <span class="d">전공필수 · 반드시 포함 · 가능하면 포함 · 제외</span></div>
+      <div class="s"><span class="n">4</span> 추천 우선순위 <span class="d">전공 · 교양 · 일반 과목의 비중</span></div>
+      <div class="s"><span class="n">5</span> 시간 조건 <span class="d">선호 시간 · 수업 불가 · 제외 요일 · 공강</span></div>
+    </div>
+  </section>
+
+  <!-- 5. 학업 현황 -->
+  <section class="slide">
+    <div class="eyebrow">학업 현황</div>
+    <h2>지금 필요한 학점을<br>먼저 확인합니다</h2>
+    <div class="grid c2" style="align-items:start">
+      <div class="mini-list">
+        <div class="mini-row"><span class="tag">입학년도</span><b>2021학번 이후 기준 반영</b></div>
+        <div class="mini-row"><span class="tag">학과·전공</span><b>수강편람 기준학점 확인</b></div>
+        <div class="mini-row"><span class="tag">기이수</span><b>들은 강의는 다시 추천하지 않음</b></div>
+        <div class="mini-row"><span class="tag">남은 요건</span><b>교양 · 전공 · 졸업 총학점</b></div>
+      </div>
+      <div class="report-block" style="min-height:auto">
+        <div class="r-k">추천 결과에서 함께 안내</div>
+        <div class="r-t">이번 시간표가 어떤 요건을 채우는지</div>
+        <div class="r-d">추천 후 남는 학점, 남은 정규학기, 앞으로 학기당 필요한 평균 학점을 함께 보여줍니다.</div>
+        <div class="r-d" style="color:var(--text);margin-top:2vh"><b>2026학년도 2학기 개설 강의 기준</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. 개인화 -->
+  <section class="slide">
+    <div class="eyebrow">개인화</div>
+    <h2>사람마다 다른<br>‘좋은 시간표’를 반영합니다</h2>
+    <div class="report-grid">
+      <div class="report-block">
+        <div class="r-k">강의 선택</div>
+        <div class="r-t">꼭 듣기 · 가능하면 듣기 · 제외하기</div>
+        <div class="r-d">이번 학기 전공필수도 학생이 직접 선택해 과도한 자동 결정을 막습니다.</div>
+      </div>
+      <div class="report-block">
+        <div class="r-k">시간 선택</div>
+        <div class="r-t">선호 시간과 수업 불가 시간을 직접 표시</div>
+        <div class="r-d">제외 요일, 첫·마지막 수업, 연속 수업 시간도 함께 정합니다.</div>
+      </div>
+      <div class="report-block">
+        <div class="r-k">생활 방식</div>
+        <div class="r-t">등교일 · 공강 · 이동 · 온라인 수업</div>
+        <div class="r-d">생활 패턴에 따라 어떤 조건을 더 중요하게 볼지 선택합니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. 추천 결과 -->
+  <section class="slide">
+    <div class="eyebrow">추천 결과</div>
+    <h2>한 가지 정답 대신<br>서로 다른 네 가지 선택지</h2>
     <div class="grid c2" style="align-items:center">
-      <div class="steps-mock">
-        <div class="s"><span class="n">1</span> 학업 정보 <span class="d">학번 · 학과 · 이수 학점</span></div>
-        <div class="s"><span class="n">2</span> 이수한 강의 <span class="d">추천 후보에서 제외</span></div>
-        <div class="s"><span class="n">3</span> 강의 직접 선택 <span class="d">필수 포함 / 제외</span></div>
-        <div class="s"><span class="n">4</span> 우선순위 <span class="d">전공 · 교양 · 일반</span></div>
-        <div class="s"><span class="n">5</span> 시간 조건 <span class="d">요일 · 시간대 · 공강</span></div>
-        <div class="s" style="border-color:var(--text)"><span class="n">✦</span> <b>추천안 4개 생성</b></div>
+      <div>
+        <div class="plan-tabs"><span class="active">1</span><span>2</span><span>3</span><span>4</span></div>
+        <div class="mock-tt" style="width:min(40vw,470px)" aria-hidden="true">
+          <div class="col"><div class="cell" style="height:5vh"></div><div class="cell f" style="height:9vh;background:#5B7A99"></div><div class="cell" style="height:7vh"></div></div>
+          <div class="col"><div class="cell f" style="height:7vh;background:#7A996B"></div><div class="cell" style="height:6vh"></div><div class="cell f" style="height:8vh;background:#99765B"></div></div>
+          <div class="col"><div class="cell" style="height:4vh"></div><div class="cell f" style="height:10vh;background:#7A5B99"></div><div class="cell" style="height:7vh"></div></div>
+          <div class="col"><div class="cell f" style="height:6vh;background:#5B9992"></div><div class="cell" style="height:8vh"></div><div class="cell f" style="height:7vh;background:#995B6E"></div></div>
+          <div class="col"><div class="cell" style="height:9vh"></div><div class="cell f" style="height:6vh;background:#5B6E99"></div><div class="cell" style="height:6vh"></div></div>
+        </div>
       </div>
-      <div class="mock-tt" aria-hidden="true">
-        <div class="col"><div class="cell" style="height:5vh"></div><div class="cell f" style="height:9vh;background:#5B7A99"></div><div class="cell" style="height:7vh"></div></div>
-        <div class="col"><div class="cell f" style="height:7vh;background:#7A996B"></div><div class="cell" style="height:6vh"></div><div class="cell f" style="height:8vh;background:#99765B"></div></div>
-        <div class="col"><div class="cell" style="height:4vh"></div><div class="cell f" style="height:10vh;background:#7A5B99"></div><div class="cell" style="height:7vh"></div></div>
-        <div class="col"><div class="cell f" style="height:6vh;background:#5B9992"></div><div class="cell" style="height:8vh"></div><div class="cell f" style="height:7vh;background:#995B6E"></div></div>
-        <div class="col"><div class="cell" style="height:9vh"></div><div class="cell f" style="height:6vh;background:#5B6E99"></div><div class="cell" style="height:6vh"></div></div>
+      <ul class="points">
+        <li><b>목표 학점 · 등교일 · 공강 시간</b>을 한눈에 비교</li>
+        <li>각 강의가 <b>왜 포함되었는지</b> 이유 표시</li>
+        <li>교양·전공·졸업 총학점에 미치는 <b>학점 효과</b> 안내</li>
+        <li>추천안은 <b>참고용으로 저장</b>되며 확정 시간표를 자동 변경하지 않음</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 8. 한 과목 교체 -->
+  <section class="slide">
+    <div class="eyebrow">추천 보완</div>
+    <h2>한 과목만 마음에 들지 않아도<br>처음부터 다시 만들 필요가 없습니다</h2>
+    <div class="swap-flow">
+      <div class="swap-step">
+        <div class="num">01</div>
+        <div class="title">바꾸고 싶은 강의 선택</div>
+        <div class="body">추천안의 강의 목록에서 한 과목을 누릅니다.</div>
+      </div>
+      <div class="swap-arrow">→</div>
+      <div class="swap-step">
+        <div class="num">02</div>
+        <div class="title">대체 가능한 강의 비교</div>
+        <div class="body">같은 과목의 다른 분반을 먼저, 이후 비슷한 시간·이수영역의 강의를 보여줍니다.</div>
+      </div>
+      <div class="swap-arrow">→</div>
+      <div class="swap-step">
+        <div class="num">03</div>
+        <div class="title">변경 결과 미리보기</div>
+        <div class="body">총학점, 등교일, 공강의 변화를 확인한 뒤 현재 추천안에만 반영합니다.</div>
       </div>
     </div>
   </section>
 
-  <!-- 4. 졸업요건 -->
+  <!-- 9. 실패 안내 -->
   <section class="slide">
-    <div class="eyebrow">Smart defaults</div>
-    <h2>졸업요건을 알고 있는<br>시간표</h2>
-    <ul class="points">
-      <li><b>2021~2026학번 전 학과</b>의 수강편람 기준학점 내장 <span class="dim">졸업학점 · 전공 · 교양</span></li>
-      <li>학과를 고르면 <b>기준학점이 자동 설정</b></li>
-      <li>기초교양 필수 분야(글쓰기·논리·외국어·SW)의 <b>미이수 영역을 우선 추천</b></li>
-      <li>전공필수는 <b>자동으로 시간표에 포함</b></li>
-    </ul>
-  </section>
-
-  <!-- 5. 추천 엔진 -->
-  <section class="slide">
-    <div class="eyebrow">Engine</div>
-    <h2>추천 엔진</h2>
-    <div class="flow" style="margin-bottom:4vh">
-      <div class="node"><div class="n-t">후보 수집</div><div class="n-s">전공 + 교양 개설 강의</div></div>
-      <div class="arrow">→</div>
-      <div class="node"><div class="n-t">필터링</div><div class="n-s">이수·제외 강의, 시간 조건</div></div>
-      <div class="arrow">→</div>
-      <div class="node"><div class="n-t">탐색</div><div class="n-s">완전탐색 / 빔서치</div></div>
-      <div class="arrow">→</div>
-      <div class="node"><div class="n-t">점수화</div><div class="n-s">졸업요건 커버리지</div></div>
-    </div>
-    <ul class="points">
-      <li>과목 수가 적으면 <b>완전탐색</b>, 많으면 <b>빔서치</b>로 자동 전환</li>
-      <li><b>4가지 전략</b>을 병렬 실행 — 균형 · 전공 우선 · 필수요건 우선 · 시간표 우선</li>
-      <li>남은 졸업요건을 채우는 조합에 가산점, 공강·등교일은 감점</li>
-      <li>수만 개 조합을 <b>수 초 안에</b> 탐색해 상위 추천안만 제시</li>
-    </ul>
-  </section>
-
-  <!-- 6. DB 설계 -->
-  <section class="slide">
-    <div class="eyebrow">Database</div>
-    <h2>데이터베이스 설계</h2>
-    <div class="schema">
-      <div class="dbtable">
-        <div class="db-h">courses <span style="color:var(--muted);font-weight:400">강의</span></div>
-        <div class="db-r key"><span class="f">id</span><span class="c">PK</span></div>
-        <div class="db-r"><span class="f">course_name</span><span class="c">과목명</span></div>
-        <div class="db-r"><span class="f">professor</span><span class="c">교수</span></div>
-        <div class="db-r"><span class="f">department</span><span class="c">개설 학과</span></div>
-        <div class="db-r"><span class="f">credits</span><span class="c">학점</span></div>
-        <div class="db-r"><span class="f">completion_type</span><span class="c">이수구분</span></div>
-        <div class="db-r"><span class="f">academic_year · semester</span><span class="c">연도 · 학기</span></div>
+    <div class="eyebrow">안내와 안전장치</div>
+    <h2>시간표를 만들 수 없을 때도<br>이유와 다음 행동을 알려줍니다</h2>
+    <div class="compare">
+      <div class="panel">
+        <div class="c-h">확인하는 원인</div>
+        <div class="c-r">필수 강의끼리 시간이 겹치는지</div>
+        <div class="c-r">수업 불가 시간과 충돌하는지</div>
+        <div class="c-r">목표 학점이 현재 조건보다 높은지</div>
+        <div class="c-r">제외 요일이 너무 많은지</div>
       </div>
-      <div class="rel">
-        <div class="r-line">1 ⟶ N</div>
-        <div>강의 하나에<br>수업 시간 여러 개</div>
-      </div>
-      <div class="dbtable">
-        <div class="db-h">course_meetings <span style="color:var(--muted);font-weight:400">수업 시간</span></div>
-        <div class="db-r key"><span class="f">course_id</span><span class="c">FK</span></div>
-        <div class="db-r"><span class="f">weekday</span><span class="c">요일</span></div>
-        <div class="db-r"><span class="f">start_time · end_time</span><span class="c">시작 · 종료</span></div>
-        <div class="db-r"><span class="f">room</span><span class="c">강의실</span></div>
+      <div class="to">→</div>
+      <div class="panel">
+        <div class="c-h">제안하는 조정</div>
+        <div class="c-r">충돌한 필수 강의 다시 선택</div>
+        <div class="c-r">수업 불가 시간 일부 완화</div>
+        <div class="c-r">목표 학점 조정</div>
+        <div class="c-r">가능한 요일 추가</div>
       </div>
     </div>
-    <ul class="points">
-      <li>한 강의가 <b>주 2~3회 다른 시간·강의실</b>에서 열리므로 시간을 별도 테이블로 분리</li>
-      <li>덕분에 <b>시간 겹침 검사</b>가 행 단위 비교로 단순해짐</li>
-      <li>공식 수강편람(.xls)을 <b>자동 변환</b>해 학기 단위로 적재</li>
-    </ul>
+    <div class="big-callout">결과가 없는 화면에서 멈추지 않고, <b>다시 만들 수 있는 방향</b>을 제시합니다.</div>
   </section>
 
-  <!-- 7. 기술 구성 -->
+  <!-- 10. 기대 효과 -->
   <section class="slide">
-    <div class="eyebrow">Engineering</div>
-    <h2>HTML 파일 하나가 전부</h2>
-    <ul class="points">
-      <li>프레임워크 없음, 빌드 없음, <b>외부 라이브러리 0개</b></li>
-      <li>강의 DB는 <b>REST API로 직접 조회</b> — 추천 계산은 전부 브라우저 안에서</li>
-      <li>입력 정보는 서버로 보내지 않고 <b>브라우저에만 저장</b> <span class="dim">로그인 불필요 · 개인정보 수집 없음</span></li>
-      <li>다크모드 · 모바일 대응</li>
-    </ul>
-    <div class="stat-row">
-      <div class="stat"><div class="s-v">1</div><div class="s-l">HTML 파일</div></div>
-      <div class="stat"><div class="s-v">0</div><div class="s-l">외부 의존성</div></div>
-      <div class="stat"><div class="s-v">0</div><div class="s-l">서버 비용</div></div>
+    <div class="eyebrow">기대 효과</div>
+    <h2>수강신청 전,<br>결정에 필요한 정보를 한곳에</h2>
+    <div class="compare">
+      <div class="panel">
+        <div class="c-h">기존 방식</div>
+        <div class="c-r">여러 화면에서 정보를 따로 확인</div>
+        <div class="c-r">시간표 조합을 반복해서 작성</div>
+        <div class="c-r">필수요건 충족 여부를 직접 판단</div>
+      </div>
+      <div class="to">→</div>
+      <div class="panel" style="border-color:var(--text)">
+        <div class="c-h">스마트 시간표 도우미</div>
+        <div class="c-r">학업 현황과 생활 조건을 한 번에 반영</div>
+        <div class="c-r">서로 다른 추천안 네 개를 비교</div>
+        <div class="c-r">한 과목만 교체하고 변화까지 확인</div>
+      </div>
     </div>
-  </section>
-
-  <!-- 8. 검증 -->
-  <section class="slide">
-    <div class="eyebrow">Verified</div>
-    <h2>실제로 돌려봤습니다</h2>
-    <ul class="points">
-      <li>학과 <b>128개</b> 로딩, 졸업요건 자동 계산 <span class="dim">컴퓨터공학과 140학점 · 전공 84 확인</span></li>
-      <li>개설 강의 <b>후보 542개</b>에서 추천안 <b>4개 생성</b> — 전부 목표 18학점 충족</li>
-      <li>시간표 그리드 · 강의 검색 · 저장/복원 동작 확인, <b>콘솔 에러 0건</b></li>
-    </ul>
-  </section>
-
-  <!-- 9. 다음 단계 -->
-  <section class="slide">
-    <div class="eyebrow">Next</div>
-    <h2>다음 단계</h2>
-    <ul class="points">
-      <li>정적 호스팅으로 <b>정식 배포</b> — 수강신청 시즌에 링크로 공유</li>
-      <li>졸업요건 데이터를 <b>DB로 이관</b>해 학칙 변경에 빠르게 대응</li>
-      <li>이수 강의 <b>자동 입력</b> 방안 검토 <span class="dim">성적표 파일 업로드 등</span></li>
-      <li>사용 피드백 반영해 추천 품질 개선</li>
-    </ul>
-  </section>
-
-  <!-- 10. 마무리 -->
-  <section class="slide" style="align-items:flex-start">
-    <div class="eyebrow">Thanks</div>
-    <h1 style="font-size:clamp(32px,5.5vw,76px)">설치 없이,<br>링크 하나로 시간표를</h1>
-    <p class="lead">감사합니다 · Q&amp;A</p>
+    <p class="lead" style="max-width:none"><b style="color:var(--text)">비교하고, 바꾸고, 납득할 수 있는 시간표.</b><br>2026학년도 2학기 실제 수강계획에 적용하며 사용자 의견을 반영할 예정입니다.</p>
   </section>
 
 </div>
