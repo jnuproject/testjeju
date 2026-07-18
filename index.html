@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>시간표 도우미</title>
-<meta name="description" content="제주대학교 수강신청 추천 시간표 도우미">
+<meta name="description" content="제주대학교 졸업요건과 편입 인정학점을 반영하는 수강신청 추천 시간표 도우미">
 <style>
 :root {
   --bg: #F4F4F4;
@@ -603,8 +603,26 @@ function normalizeDepartment(value) {
   return value.replace(/\s+/g, '').replaceAll('소프트웨어학부', '').replaceAll('공과대학', '').replaceAll('·', '');
 }
 
-function resolveRule(admissionYear, department) {
+function ruleSourceLabel(curriculumYear, admissionType) {
+  return admissionType === 'transfer'
+    ? `${curriculumYear}학년도 편입 적용 교육과정`
+    : `${curriculumYear}학년도 신입생 수강편람`;
+}
+
+function resolveRule(admissionYear, department, admissionType = 'freshman') {
   const normalized = normalizeDepartment(department);
+  if (admissionType === 'transfer' && normalized.includes('약학과')) {
+    return {
+      admissionYear,
+      sourceLabel: '약학과 편입학 교육과정 기준',
+      isVerified: true,
+      basicLabel: '기초교양', coreLabel: '핵심교양·JNU소양', otherGeneralLabel: '기타교양',
+      graduationCredits: 160,
+      generalMinimum: 0, basicMinimum: 0, coreMinimum: 0, otherGeneralMinimum: 0,
+      majorMinimum: 160,
+      majorRequiredMinimum: 0,
+    };
+  }
   if (admissionYear >= 2021 && admissionYear <= 2024) {
     const rules = { ...RULES_2022 };
     if (admissionYear === 2021) Object.assign(rules, OVERRIDES_2021);
@@ -617,7 +635,7 @@ function resolveRule(admissionYear, department) {
     const isComputer = normalized.includes('컴퓨터공학전공') || normalized.includes('컴퓨터공학과');
     return {
       admissionYear,
-      sourceLabel: `${admissionYear}학년도 신입생 수강편람`,
+      sourceLabel: ruleSourceLabel(admissionYear, admissionType),
       isVerified: major !== null,
       basicLabel: '기초역량교양', coreLabel: '핵심역량교양', otherGeneralLabel: '일반교양',
       graduationCredits: major?.[0] ?? 130,
@@ -630,7 +648,7 @@ function resolveRule(admissionYear, department) {
     const major = Object.entries(RULES_2026).find(([key]) => normalized.includes(key))?.[1] ?? null;
     return {
       admissionYear,
-      sourceLabel: `${admissionYear}학년도 신입생 수강편람`,
+      sourceLabel: ruleSourceLabel(admissionYear, admissionType),
       isVerified: major !== null,
       basicLabel: '기초교양', coreLabel: '핵심교양·JNU소양', otherGeneralLabel: '기타교양',
       graduationCredits: major?.[0] ?? 130,
@@ -640,7 +658,7 @@ function resolveRule(admissionYear, department) {
     };
   }
   return {
-    admissionYear, sourceLabel: `${admissionYear}학번 수강편람`, isVerified: false,
+    admissionYear, sourceLabel: ruleSourceLabel(admissionYear, admissionType), isVerified: false,
     basicLabel: '기초역량교양', coreLabel: '핵심역량교양', otherGeneralLabel: '일반교양',
     graduationCredits: 0, generalMinimum: 0, basicMinimum: 0, coreMinimum: 0,
     otherGeneralMinimum: 0, majorMinimum: 0, majorRequiredMinimum: 0,
@@ -656,13 +674,94 @@ const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 const courseKey = (course) => courseNameKey(course.name);
 const remaining = (target, completed, current) => clamp(target - completed - current, 0, 250);
 
+function isTransferStatus(s) { return s.admissionType === 'transfer'; }
+function effectiveCurriculumYear(s) {
+  return isTransferStatus(s)
+    ? clamp(s.curriculumYear ?? s.admissionYear - 2, 2021, 2026)
+    : s.admissionYear;
+}
+function statusHasGeneralEducationRequirements(s) {
+  return !isTransferStatus(s) ||
+    (s.transferRecognitionConfirmed && s.transferGeneralRequirementsApply);
+}
+function appliedTransferRecognizedCredits(s) {
+  if (!isTransferStatus(s)) return 0;
+  return clamp(s.transferRecognizedCredits, 0, s.graduationCredits > 0 ? s.graduationCredits : 250);
+}
+function appliedTransferRecognizedMajorCredits(s) {
+  if (!isTransferStatus(s)) return 0;
+  return clamp(s.transferRecognizedMajorCredits, 0, appliedTransferRecognizedCredits(s));
+}
+function appliedTransferRecognizedGeneralCredits(s) {
+  if (!isTransferStatus(s)) return 0;
+  return clamp(
+    s.transferRecognizedGeneralCredits,
+    0,
+    clamp(appliedTransferRecognizedCredits(s) - appliedTransferRecognizedMajorCredits(s), 0, 250)
+  );
+}
 function statusGeneralCompleted(s) { return s.generalBasicCompleted + s.generalCoreCompleted + s.generalOtherCompleted; }
+function statusGeneralCompletedForRequirements(s) {
+  return statusGeneralCompleted(s) + appliedTransferRecognizedGeneralCredits(s);
+}
+function statusMajorCompleted(s) {
+  return s.majorRequiredCompleted + s.majorElectiveCompleted + appliedTransferRecognizedMajorCredits(s);
+}
 function statusCompletedTotal(s) {
-  return statusGeneralCompleted(s) + s.majorRequiredCompleted + s.majorElectiveCompleted + s.generalElectiveCompleted;
+  return statusGeneralCompleted(s) + s.majorRequiredCompleted + s.majorElectiveCompleted +
+    s.generalElectiveCompleted + appliedTransferRecognizedCredits(s);
 }
 const remainingCredits = (target, completed) => target <= 0 ? 0 : clamp(target - completed, 0, target);
+function statusGeneralBasicRemaining(s) {
+  return statusHasGeneralEducationRequirements(s)
+    ? remainingCredits(s.generalBasicTarget, s.generalBasicCompleted)
+    : 0;
+}
+function statusGeneralCoreRemaining(s) {
+  return statusHasGeneralEducationRequirements(s)
+    ? remainingCredits(s.generalCoreTarget, s.generalCoreCompleted)
+    : 0;
+}
+function statusGeneralOtherRemaining(s) {
+  return statusHasGeneralEducationRequirements(s)
+    ? remainingCredits(s.generalOtherTarget, s.generalOtherCompleted)
+    : 0;
+}
+function statusGeneralRequirementRemaining(s) {
+  if (!statusHasGeneralEducationRequirements(s)) return 0;
+  const categoryRemaining = statusGeneralBasicRemaining(s) +
+    statusGeneralCoreRemaining(s) + statusGeneralOtherRemaining(s);
+  const totalRemaining = remainingCredits(s.generalTarget, statusGeneralCompletedForRequirements(s));
+  return Math.max(categoryRemaining, totalRemaining);
+}
+function statusMajorRequirementRemaining(s) {
+  return remainingCredits(s.majorTotalTarget, statusMajorCompleted(s));
+}
+function statusGraduationRemaining(s) {
+  return remainingCredits(s.graduationCredits, statusCompletedTotal(s));
+}
+function statusMinimumCreditsRequired(s) {
+  return Math.max(
+    statusGraduationRemaining(s),
+    statusMajorRequirementRemaining(s) + statusGeneralRequirementRemaining(s)
+  );
+}
+function statusHasSpecialTransferProgram(s) {
+  return isTransferStatus(s) && ['건축학과', '간호학과', '수의학과', '약학과']
+    .some((name) => s.department.includes(name));
+}
+function statusExpectedGraduationGrade(s) {
+  if (!isTransferStatus(s)) return 4;
+  if (s.department.includes('건축학과') || s.department.includes('간호학과')) return 5;
+  if (s.department.includes('수의학과') || s.department.includes('약학과')) return 6;
+  return 4;
+}
 function statusRemainingRegularSemesters(s) {
-  return clamp((4 - s.currentGrade) * 2 + (s.currentSemester === 1 ? 2 : 1), 1, 8);
+  return clamp(
+    (statusExpectedGraduationGrade(s) - s.currentGrade) * 2 + (s.currentSemester === 1 ? 2 : 1),
+    1,
+    12
+  );
 }
 
 function gapMinutes(courses) {
@@ -804,7 +903,7 @@ function requirementCoverageScore(courses, status, strategy) {
   let basicCredits = 0, coreCredits = 0, otherGeneralCredits = 0;
   const selectedBasicAreas = new Set(), selectedCoreGroups = new Set();
   for (const course of courses) {
-    const rec = resolveRecognition(course, status.admissionYear);
+    const rec = resolveRecognition(course, effectiveCurriculumYear(status));
     switch (rec.bucket) {
       case BUCKET.majorRequired: majorRequiredCredits += course.credits; majorCredits += course.credits; break;
       case BUCKET.majorElective: majorCredits += course.credits; majorElectiveCredits += course.credits; break;
@@ -819,17 +918,22 @@ function requirementCoverageScore(courses, status, strategy) {
       case BUCKET.generalOther: otherGeneralCredits += course.credits; break;
     }
   }
-  const majorRemaining = remaining(status.majorTotalTarget,
-    status.majorRequiredCompleted + status.majorElectiveCompleted, 0);
+  const majorRemaining = remaining(status.majorTotalTarget, statusMajorCompleted(status), 0);
   const majorRequiredRemaining = remaining(status.majorRequiredTarget, status.majorRequiredCompleted, 0);
-  const basicRemaining = remaining(status.generalBasicTarget, status.generalBasicCompleted, 0);
-  const coreRemaining = remaining(status.generalCoreTarget, status.generalCoreCompleted, 0);
-  const generalRemaining = remaining(status.generalTarget, statusGeneralCompleted(status), 0);
+  const basicRemaining = statusHasGeneralEducationRequirements(status)
+    ? remaining(status.generalBasicTarget, status.generalBasicCompleted, 0) : 0;
+  const coreRemaining = statusHasGeneralEducationRequirements(status)
+    ? remaining(status.generalCoreTarget, status.generalCoreCompleted, 0) : 0;
+  const generalRemaining = statusHasGeneralEducationRequirements(status)
+    ? remaining(status.generalTarget, statusGeneralCompletedForRequirements(status), 0) : 0;
   const majorElectiveRemaining = remaining(status.majorElectiveTarget, status.majorElectiveCompleted, 0);
   const semesters = remainingSemestersFor(status);
   const termMajorRequired = termShare(majorRequiredRemaining, semesters);
   const termMajorElective = termShare(majorElectiveRemaining, semesters);
   const termCore = termShare(coreRemaining, semesters);
+  const unsplitMajorCredits = status.majorRequiredTarget <= 0 && status.majorElectiveTarget <= 0
+    ? clamp(majorCredits, 0, majorRemaining)
+    : 0;
 
   let score;
   switch (strategy) {
@@ -837,31 +941,37 @@ function requirementCoverageScore(courses, status, strategy) {
       score = clamp(majorRequiredCredits, 0, termMajorRequired) * 700 +
         clamp(majorElectiveCredits, 0, termMajorElective) * 550 +
         clamp(coreCredits, 0, termCore) * 650 +
+        unsplitMajorCredits * 625 +
         clamp(majorCredits, 0, majorRemaining) * 70;
       break;
     case 'majorFirst':
       score = clamp(majorRequiredCredits, 0, majorRequiredRemaining) * 750 +
         clamp(majorElectiveCredits, 0, majorElectiveRemaining) * 600 +
+        unsplitMajorCredits * 700 +
         clamp(coreCredits, 0, coreRemaining) * 120;
       break;
     case 'requirementsFirst':
       score = clamp(majorRequiredCredits, 0, majorRequiredRemaining) * 600 +
         clamp(majorElectiveCredits, 0, majorElectiveRemaining) * 300 +
+        unsplitMajorCredits * 600 +
         clamp(basicCredits, 0, basicRemaining) * 900 +
         clamp(coreCredits, 0, coreRemaining) * 1200;
       break;
     default:
       score = clamp(majorRequiredCredits, 0, majorRequiredRemaining) * 100 +
         clamp(majorElectiveCredits, 0, majorElectiveRemaining) * 80 +
+        unsplitMajorCredits * 90 +
         clamp(basicCredits, 0, basicRemaining) * 100 +
         clamp(coreCredits, 0, coreRemaining) * 100;
   }
   score += clamp(basicCredits + coreCredits + otherGeneralCredits, 0, generalRemaining) * 60;
 
-  for (const area of selectedBasicAreas) {
-    if (!status.completedGeneralBasicAreas.includes(area)) score += 300;
+  if (statusHasGeneralEducationRequirements(status)) {
+    for (const area of selectedBasicAreas) {
+      if (!status.completedGeneralBasicAreas.includes(area)) score += 300;
+    }
   }
-  if (status.admissionYear >= 2025) {
+  if (statusHasGeneralEducationRequirements(status) && effectiveCurriculumYear(status) >= 2025) {
     for (const group of selectedCoreGroups) {
       if (!status.completedGeneralCoreGroups.includes(group)) score += 300;
     }
@@ -883,25 +993,24 @@ function buildPlan(courses, credits, preferences, status, strategy, preferredCou
   score += courses.reduce((total, c) => total + preferredTimeScore(c, preferences), 0);
   score += requirementCoverageScore(courses, status, strategy);
 
-  const majorRemainingValue = remaining(status.majorTotalTarget,
-    status.majorRequiredCompleted + status.majorElectiveCompleted, 0);
+  const majorRemainingValue = remaining(status.majorTotalTarget, statusMajorCompleted(status), 0);
 
   for (const course of courses) {
-    const rec = resolveRecognition(course, status.admissionYear);
+    const rec = resolveRecognition(course, effectiveCurriculumYear(status));
     if (preferences.preferOnline && isOnline(course)) score += 80;
     if (preferredCourseIds.has(course.id)) score += 450;
     if (rec.bucket === BUCKET.majorRequired) {
       score += majorRemainingValue > 0 ? 90 : 25;
     } else if (rec.bucket === BUCKET.majorElective) {
       score += majorRemainingValue > 0 ? 60 : 10;
-    } else if (rec.bucket === BUCKET.generalBasic) {
+    } else if (rec.bucket === BUCKET.generalBasic && statusHasGeneralEducationRequirements(status)) {
       score += remaining(status.generalBasicTarget, status.generalBasicCompleted, 0) > 0 ? 70 : -120;
       if (rec.basicAreaKey && !status.completedGeneralBasicAreas.includes(rec.basicAreaKey)) score += 100;
-    } else if (rec.bucket === BUCKET.generalCore) {
+    } else if (rec.bucket === BUCKET.generalCore && statusHasGeneralEducationRequirements(status)) {
       score += remaining(status.generalCoreTarget, status.generalCoreCompleted, 0) > 0 ? 65 : 8;
-      if (status.admissionYear >= 2025 && rec.coreGroupKey && !status.completedGeneralCoreGroups.includes(rec.coreGroupKey)) score += 100;
-    } else if (rec.bucket === BUCKET.generalOther) {
-      score += remaining(status.generalTarget, statusGeneralCompleted(status), 0) > 0 ? 55 : 5;
+      if (effectiveCurriculumYear(status) >= 2025 && rec.coreGroupKey && !status.completedGeneralCoreGroups.includes(rec.coreGroupKey)) score += 100;
+    } else if (rec.bucket === BUCKET.generalOther && statusHasGeneralEducationRequirements(status)) {
+      score += remaining(status.generalTarget, statusGeneralCompletedForRequirements(status), 0) > 0 ? 55 : 5;
     } else if (rec.bucket === BUCKET.generalElective) {
       score += remaining(status.generalElectiveTarget, status.generalElectiveCompleted, 0) > 0 ? 35 : 0;
     }
@@ -916,16 +1025,16 @@ function buildPlan(courses, credits, preferences, status, strategy, preferredCou
 }
 
 function searchPriority(course, status, strategy) {
-  const rec = resolveRecognition(course, status.admissionYear);
-  const missingBasicArea = rec.basicAreaKey != null && !status.completedGeneralBasicAreas.includes(rec.basicAreaKey);
-  const missingCore = rec.bucket === BUCKET.generalCore &&
+  const rec = resolveRecognition(course, effectiveCurriculumYear(status));
+  const missingBasicArea = statusHasGeneralEducationRequirements(status) &&
+    rec.basicAreaKey != null && !status.completedGeneralBasicAreas.includes(rec.basicAreaKey);
+  const missingCore = statusHasGeneralEducationRequirements(status) && rec.bucket === BUCKET.generalCore &&
     remaining(status.generalCoreTarget, status.generalCoreCompleted, 0) > 0;
   const missingMajorRequired = rec.bucket === BUCKET.majorRequired &&
     remaining(status.majorRequiredTarget, status.majorRequiredCompleted, 0) > 0;
   const missingMajor = (rec.bucket === BUCKET.majorRequired || rec.bucket === BUCKET.majorElective) &&
-    remaining(status.majorTotalTarget,
-      status.majorRequiredCompleted + status.majorElectiveCompleted, 0) > 0;
-  const missingBasicCredits = rec.bucket === BUCKET.generalBasic &&
+    remaining(status.majorTotalTarget, statusMajorCompleted(status), 0) > 0;
+  const missingBasicCredits = statusHasGeneralEducationRequirements(status) && rec.bucket === BUCKET.generalBasic &&
     remaining(status.generalBasicTarget, status.generalBasicCompleted, 0) > 0;
 
   const b = rec.bucket;
@@ -1219,22 +1328,24 @@ function selectDiversePlans(generated, limit = 4) {
 const creditText = (v) => Number(v).toFixed(Number(v) % 1 === 0 ? 0 : 1);
 
 function analyzePlan({ plan, status, preferences, requiredCourseIds = new Set(), preferredCourseIds = new Set() }) {
-  const rule = resolveRule(status.admissionYear, status.department);
+  const rule = resolveRule(effectiveCurriculumYear(status), status.department, status.admissionType);
   const creditsByBucket = {};
   for (const b of Object.values(BUCKET)) creditsByBucket[b] = 0;
   const recognitions = {};
   const newRequiredAreas = new Set();
 
   for (const course of plan.courses) {
-    const rec = resolveRecognition(course, status.admissionYear);
+    const rec = resolveRecognition(course, effectiveCurriculumYear(status));
     recognitions[course.id] = rec;
     creditsByBucket[rec.bucket] += course.credits;
-    if (rec.basicAreaKey && !status.completedGeneralBasicAreas.includes(rec.basicAreaKey)) {
-      newRequiredAreas.add(BASIC_AREA_LABELS[rec.basicAreaKey] || rec.basicAreaKey);
-    }
-    if (status.admissionYear >= 2025 && rec.coreGroupKey &&
-        !status.completedGeneralCoreGroups.includes(rec.coreGroupKey)) {
-      newRequiredAreas.add(CORE_GROUP_LABELS[rec.coreGroupKey] || rec.coreGroupKey);
+    if (statusHasGeneralEducationRequirements(status)) {
+      if (rec.basicAreaKey && !status.completedGeneralBasicAreas.includes(rec.basicAreaKey)) {
+        newRequiredAreas.add(BASIC_AREA_LABELS[rec.basicAreaKey] || rec.basicAreaKey);
+      }
+      if (effectiveCurriculumYear(status) >= 2025 && rec.coreGroupKey &&
+          !status.completedGeneralCoreGroups.includes(rec.coreGroupKey)) {
+        newRequiredAreas.add(CORE_GROUP_LABELS[rec.coreGroupKey] || rec.coreGroupKey);
+      }
     }
   }
 
@@ -1251,8 +1362,7 @@ function analyzePlan({ plan, status, preferences, requiredCourseIds = new Set(),
   const rem = (target, completed) => Math.max(0, target - completed);
   const majorRequiredRemaining = rem(status.majorRequiredTarget, status.majorRequiredCompleted);
   const majorElectiveRemaining = rem(status.majorElectiveTarget, status.majorElectiveCompleted);
-  const majorTotalRemaining = rem(status.majorTotalTarget,
-    status.majorRequiredCompleted + status.majorElectiveCompleted);
+  const majorTotalRemaining = rem(status.majorTotalTarget, statusMajorCompleted(status));
   const plannedMajorRequired = creditsByBucket[BUCKET.majorRequired];
   const plannedMajorElective = creditsByBucket[BUCKET.majorElective];
   if (status.majorRequiredTarget > 0 || status.majorElectiveTarget > 0) {
@@ -1261,9 +1371,9 @@ function analyzePlan({ plan, status, preferences, requiredCourseIds = new Set(),
   } else {
     addImpact('전공', majorTotalRemaining, plannedMajorRequired + plannedMajorElective);
   }
-  addImpact(rule.basicLabel, remainingCredits(status.generalBasicTarget, status.generalBasicCompleted), creditsByBucket[BUCKET.generalBasic]);
-  addImpact(rule.coreLabel, remainingCredits(status.generalCoreTarget, status.generalCoreCompleted), creditsByBucket[BUCKET.generalCore]);
-  addImpact(rule.otherGeneralLabel, remainingCredits(status.generalOtherTarget, status.generalOtherCompleted), creditsByBucket[BUCKET.generalOther]);
+  addImpact(rule.basicLabel, statusGeneralBasicRemaining(status), creditsByBucket[BUCKET.generalBasic]);
+  addImpact(rule.coreLabel, statusGeneralCoreRemaining(status), creditsByBucket[BUCKET.generalCore]);
+  addImpact(rule.otherGeneralLabel, statusGeneralOtherRemaining(status), creditsByBucket[BUCKET.generalOther]);
   addImpact('일반선택', rem(status.generalElectiveTarget, status.generalElectiveCompleted), creditsByBucket[BUCKET.generalElective]);
 
   let preferredTimeCoverage = null;
@@ -1300,6 +1410,9 @@ function analyzePlan({ plan, status, preferences, requiredCourseIds = new Set(),
   if (newRequiredAreas.size > 0) facts.push(`새 필수 영역 ${newRequiredAreas.size}개 반영`);
 
   const alerts = [];
+  if (isTransferStatus(status) && !status.transferRecognitionConfirmed) {
+    alerts.push('편입 인정학점이 아직 확정되지 않아 졸업요건 계산이 달라질 수 있습니다.');
+  }
   const targetShortfall = preferences.targetCredits - plan.credits;
   if (targetShortfall > 0.01) {
     alerts.push(`목표보다 ${creditText(targetShortfall)}학점 적습니다. 수강 가능 강의를 더 확인하세요.`);
@@ -1322,8 +1435,18 @@ function analyzePlan({ plan, status, preferences, requiredCourseIds = new Set(),
   const regularSemestersAfterPlan = Math.max(0,
     remainingRegularSemesters - (preferences.semester === 3 ? 0 : 1));
   const completedTotal = statusCompletedTotal(status);
-  const graduationRemainingAfter = status.graduationCredits <= 0 ? 0 :
+  const totalCreditsRemainingAfter = status.graduationCredits <= 0 ? 0 :
     Math.max(0, status.graduationCredits - completedTotal - plan.credits);
+  const plannedMajorCredits = creditsByBucket[BUCKET.majorRequired] + creditsByBucket[BUCKET.majorElective];
+  const majorCreditsRemainingAfter = Math.max(0,
+    statusMajorRequirementRemaining(status) - plannedMajorCredits);
+  const plannedGeneralCredits = creditsByBucket[BUCKET.generalBasic] +
+    creditsByBucket[BUCKET.generalCore] + creditsByBucket[BUCKET.generalOther];
+  const generalCreditsRemainingAfter = Math.max(0,
+    statusGeneralRequirementRemaining(status) - plannedGeneralCredits);
+  const graduationRemainingAfter = isTransferStatus(status)
+    ? Math.max(totalCreditsRemainingAfter, majorCreditsRemainingAfter + generalCreditsRemainingAfter)
+    : totalCreditsRemainingAfter;
   if (regularSemestersAfterPlan === 0 && graduationRemainingAfter > 0.01) {
     alerts.push('이번 학기 이후에도 학점이 남아 추가 학기나 계절학기 계획이 필요합니다.');
   } else if (regularSemestersAfterPlan > 0 &&
@@ -1367,22 +1490,26 @@ function requirementReasonFor(rec, status, rule) {
     case BUCKET.majorRequired: {
       const value = status.majorRequiredTarget > 0
         ? rem(status.majorRequiredTarget, status.majorRequiredCompleted)
-        : rem(status.majorTotalTarget, status.majorRequiredCompleted + status.majorElectiveCompleted);
+        : rem(status.majorTotalTarget, statusMajorCompleted(status));
       return value > 0 ? (status.majorRequiredTarget > 0 ? '전공필수 요건' : '전공 요건') : null;
     }
     case BUCKET.majorElective: {
       const value = status.majorElectiveTarget > 0
         ? rem(status.majorElectiveTarget, status.majorElectiveCompleted)
-        : rem(status.majorTotalTarget, status.majorRequiredCompleted + status.majorElectiveCompleted);
+        : rem(status.majorTotalTarget, statusMajorCompleted(status));
       return value > 0 ? (status.majorElectiveTarget > 0 ? '전공선택 요건' : '전공 요건') : null;
     }
     case BUCKET.generalBasic:
-      return remainingCredits(status.generalBasicTarget, status.generalBasicCompleted) > 0 ? `${rule.basicLabel} 요건` : null;
+      return statusHasGeneralEducationRequirements(status) && statusGeneralBasicRemaining(status) > 0
+        ? `${rule.basicLabel} 요건` : null;
     case BUCKET.generalCore:
-      return remainingCredits(status.generalCoreTarget, status.generalCoreCompleted) > 0 ? `${rule.coreLabel} 요건` : null;
+      return statusHasGeneralEducationRequirements(status) && statusGeneralCoreRemaining(status) > 0
+        ? `${rule.coreLabel} 요건` : null;
     case BUCKET.generalOther:
-      return remainingCredits(status.generalOtherTarget, status.generalOtherCompleted) > 0 ||
-        rem(status.generalTarget, statusGeneralCompleted(status)) > 0 ? '교양 요건' : null;
+      return statusHasGeneralEducationRequirements(status) &&
+        (statusGeneralOtherRemaining(status) > 0 ||
+          rem(status.generalTarget, statusGeneralCompletedForRequirements(status)) > 0)
+        ? '교양 요건' : null;
     case BUCKET.generalElective:
       return rem(status.generalElectiveTarget, status.generalElectiveCompleted) > 0 ? '일반선택 요건' : null;
     default: return null;
@@ -1390,8 +1517,9 @@ function requirementReasonFor(rec, status, rule) {
 }
 
 function addsNewArea(rec, status) {
+  if (!statusHasGeneralEducationRequirements(status)) return false;
   if (rec.basicAreaKey && !status.completedGeneralBasicAreas.includes(rec.basicAreaKey)) return true;
-  return status.admissionYear >= 2025 && rec.coreGroupKey != null &&
+  return effectiveCurriculumYear(status) >= 2025 && rec.coreGroupKey != null &&
     !status.completedGeneralCoreGroups.includes(rec.coreGroupKey);
 }
 
@@ -1461,7 +1589,7 @@ function findAlternatives({ currentPlan, replacing, candidates, preferences, cre
   const remainingIds = new Set(remainingCourses.map((c) => c.id));
   const remainingNames = new Set(remainingCourses.map((c) => courseNameKey(c.name)));
   const replacingKey = courseNameKey(replacing.name);
-  const originalRec = resolveRecognition(replacing, creditStatus.admissionYear);
+  const originalRec = resolveRecognition(replacing, effectiveCurriculumYear(creditStatus));
   const alternatives = [];
 
   for (const candidate of candidates) {
@@ -1474,7 +1602,7 @@ function findAlternatives({ currentPlan, replacing, candidates, preferences, cre
     const newCredits = currentPlan.credits - replacing.credits + candidate.credits;
     if (newCredits > preferences.targetCredits + 0.01 ||
         newCredits < clamp(preferences.targetCredits - 2, 1, 24)) continue;
-    const rec = resolveRecognition(candidate, creditStatus.admissionYear);
+    const rec = resolveRecognition(candidate, effectiveCurriculumYear(creditStatus));
     if (!sameCourse && !(originalRec.bucket === rec.bucket ||
         (isMajorBucket(originalRec.bucket) && isMajorBucket(rec.bucket)))) continue;
     if (!sameCourse && isMajorBucket(originalRec.bucket) && creditStatus.department &&
@@ -1527,7 +1655,13 @@ const STORAGE_KEY = 'next.timetable-helper.v2';
 const CURRENT_YEAR = new Date().getFullYear();
 
 const defaultCreditStatus = () => ({
-  admissionYear: 2022, currentGrade: 1, currentSemester: 1, department: '',
+  admissionType: 'freshman', admissionYear: 2022, curriculumYear: null,
+  currentGrade: 1, currentSemester: 1, department: '',
+  transferRecognizedCredits: 0,
+  transferRecognizedMajorCredits: 0,
+  transferRecognizedGeneralCredits: 0,
+  transferRecognitionConfirmed: false,
+  transferGeneralRequirementsApply: false,
   graduationCredits: 130, generalTarget: 26,
   generalBasicTarget: 10, generalBasicCompleted: 0,
   completedGeneralBasicAreas: [], completedGeneralCoreGroups: [],
@@ -1592,6 +1726,23 @@ function loadState() {
     if (!raw) return;
     const data = JSON.parse(raw);
     state.creditStatus = { ...defaultCreditStatus(), ...(data.creditStatus || {}) };
+    const s = state.creditStatus;
+    s.admissionType = s.admissionType === 'transfer' ? 'transfer' : 'freshman';
+    s.admissionYear = clamp(parseInt(s.admissionYear, 10) || 2022, 2021, 2026);
+    s.curriculumYear = s.curriculumYear == null
+      ? null
+      : clamp(parseInt(s.curriculumYear, 10) || s.admissionYear, 2021, 2026);
+    s.currentGrade = clamp(parseInt(s.currentGrade, 10) || 1, isTransferStatus(s) ? 3 : 1, 6);
+    s.currentSemester = clamp(parseInt(s.currentSemester, 10) || 1, 1, 2);
+    for (const key of [
+      'transferRecognizedCredits',
+      'transferRecognizedMajorCredits',
+      'transferRecognizedGeneralCredits',
+    ]) {
+      s[key] = clamp(parseInt(s[key], 10) || 0, 0, 250);
+    }
+    s.transferRecognitionConfirmed = s.transferRecognitionConfirmed === true;
+    s.transferGeneralRequirementsApply = s.transferGeneralRequirementsApply === true;
     state.preferences = { ...defaultPreferences(), ...(data.preferences || {}) };
     state.completedCourses = data.completedCourses || [];
     state.requiredCourses = data.requiredCourses || [];
@@ -1607,10 +1758,11 @@ function loadState() {
  * 후보 강의 로딩 · 필터
  * ============================================================ */
 function generalCandidatePriority(course, status) {
-  const rec = resolveRecognition(course, status.admissionYear);
+  if (!statusHasGeneralEducationRequirements(status)) return 0;
+  const rec = resolveRecognition(course, effectiveCurriculumYear(status));
   const missingAreaBonus = rec.basicAreaKey != null && !status.completedGeneralBasicAreas.includes(rec.basicAreaKey) ? 100 : 0;
   const missingCoreGroupBonus =
-    status.admissionYear >= 2025 && rec.coreGroupKey != null && !status.completedGeneralCoreGroups.includes(rec.coreGroupKey) ? 100 : 0;
+    effectiveCurriculumYear(status) >= 2025 && rec.coreGroupKey != null && !status.completedGeneralCoreGroups.includes(rec.coreGroupKey) ? 100 : 0;
   let bucketScore;
   switch (rec.bucket) {
     case BUCKET.generalBasic:
@@ -1618,7 +1770,7 @@ function generalCandidatePriority(course, status) {
     case BUCKET.generalCore:
       bucketScore = status.generalCoreTarget - status.generalCoreCompleted; break;
     case BUCKET.generalOther:
-      bucketScore = status.generalTarget - statusGeneralCompleted(status); break;
+      bucketScore = status.generalTarget - statusGeneralCompletedForRequirements(status); break;
     default: bucketScore = -100;
   }
   return missingAreaBonus + missingCoreGroupBonus + bucketScore;
@@ -1627,7 +1779,7 @@ function generalCandidatePriority(course, status) {
 async function ensureCandidates() {
   const s = state.creditStatus, p = state.preferences;
   if (!s.department) { state.candidates = []; return; }
-  const key = `${p.academicYear}|${p.semester}|${s.department}|${s.admissionYear}|${s.currentGrade}`;
+  const key = `${p.academicYear}|${p.semester}|${s.department}|${effectiveCurriculumYear(s)}|${s.currentGrade}`;
   if (state.candidatesKey === key && state.candidates.length > 0) return;
   const [majors, general] = await Promise.all([
     repo.getDepartmentCourses(p.academicYear, p.semester, s.department),
@@ -1663,7 +1815,7 @@ function eligibleCandidates() {
   const excludedIds = new Set(state.excludedCourses.map((c) => c.id));
   const included = explicitlyIncludedIds();
   return state.candidates.filter((c) => {
-    const isMajorRequired = resolveRecognition(c, s.admissionYear).bucket === BUCKET.majorRequired;
+    const isMajorRequired = resolveRecognition(c, effectiveCurriculumYear(s)).bucket === BUCKET.majorRequired;
     return !completedNames.has(courseNameKey(c.name)) &&
       !excludedIds.has(c.id) &&
       (!isMajorRequired || included.has(c.id)) &&
@@ -1690,7 +1842,7 @@ function majorRequiredChoices() {
     c.department === s.department &&
     !completedNames.has(courseNameKey(c.name)) &&
     isEligibleFor(c, s.department, s.currentGrade) &&
-    resolveRecognition(c, s.admissionYear).bucket === BUCKET.majorRequired
+    resolveRecognition(c, effectiveCurriculumYear(s)).bucket === BUCKET.majorRequired
   );
   choices.sort((left, right) => {
     const leftCurrent = left.grade === s.currentGrade ? 0 : 1;
@@ -1906,7 +2058,7 @@ function openCoursePicker(title, initialSelected, onDone) {
   const input = $('input', mask);
 
   function courseItemHTML(c, isSelected) {
-    const rec = resolveRecognition(c, state.creditStatus.admissionYear);
+    const rec = resolveRecognition(c, effectiveCurriculumYear(state.creditStatus));
     const meta = [rec.label, c.professor, `${creditLabel(c.credits)}학점`].filter(Boolean).join(' · ');
     const restricted = !isEligibleFor(c, state.creditStatus.department, state.creditStatus.currentGrade);
     return `<div class="course-item ${isSelected ? 'sel' : ''}" data-id="${esc(c.id)}">
@@ -2091,7 +2243,7 @@ function openAlternatives(replacing) {
     html += '<div class="card">';
     alternatives.forEach((alt, index) => {
       const c = alt.course;
-      const rec = resolveRecognition(c, state.creditStatus.admissionYear);
+      const rec = resolveRecognition(c, effectiveCurriculumYear(state.creditStatus));
       const meta = [rec.label, c.professor, `${creditLabel(c.credits)}학점`].filter(Boolean).join(' · ');
       html += `<div class="course-item" data-alt="${index}">
         <div class="grow"><div class="name">${esc(c.name)}</div>
@@ -2120,15 +2272,59 @@ function openAlternatives(replacing) {
  * ============================================================ */
 function applyRuleToStatus() {
   const s = state.creditStatus;
-  const rule = resolveRule(s.admissionYear, s.department);
+  const rule = resolveRule(effectiveCurriculumYear(s), s.department, s.admissionType);
   s.graduationCredits = rule.graduationCredits;
   s.generalTarget = rule.generalMinimum;
   s.generalBasicTarget = rule.basicMinimum;
   s.generalCoreTarget = rule.coreMinimum;
   s.generalOtherTarget = rule.otherGeneralMinimum;
   s.majorTotalTarget = rule.majorMinimum;
-  s.majorRequiredTarget = rule.majorRequiredMinimum;
-  s.majorElectiveTarget = rule.majorRequiredMinimum > 0 ? clamp(rule.majorMinimum - rule.majorRequiredMinimum, 0, 250) : 0;
+  s.majorRequiredTarget = isTransferStatus(s) ? 0 : rule.majorRequiredMinimum;
+  s.majorElectiveTarget = !isTransferStatus(s) && rule.majorRequiredMinimum > 0
+    ? clamp(rule.majorMinimum - rule.majorRequiredMinimum, 0, 250)
+    : 0;
+  if (!isTransferStatus(s)) {
+    s.curriculumYear = null;
+    s.transferRecognizedCredits = 0;
+    s.transferRecognizedMajorCredits = 0;
+    s.transferRecognizedGeneralCredits = 0;
+    s.transferRecognitionConfirmed = false;
+    s.transferGeneralRequirementsApply = false;
+  }
+}
+
+function invalidateAcademic({ candidates = false } = {}) {
+  state.plans = [];
+  state.selectedPlanIndex = 0;
+  state.error = '';
+  if (candidates) {
+    state.candidatesKey = '';
+    state.candidates = [];
+  }
+}
+
+function transferRecognitionError(s = state.creditStatus) {
+  if (!isTransferStatus(s)) return '';
+  if (s.graduationCredits > 0 && s.transferRecognizedCredits > s.graduationCredits) {
+    return '총 인정학점은 졸업 기준학점보다 클 수 없습니다.';
+  }
+  if (s.transferRecognizedMajorCredits > s.transferRecognizedCredits) {
+    return '전공 인정학점은 총 인정학점보다 클 수 없습니다.';
+  }
+  if (s.transferRecognizedMajorCredits + s.transferRecognizedGeneralCredits > s.transferRecognizedCredits) {
+    return '전공·교양 인정학점의 합은 총 인정학점보다 클 수 없습니다.';
+  }
+  return '';
+}
+
+function transferRecognitionFooter(s) {
+  const base = '제주대 학과가 승인한 결과를 입력하세요. 전공·교양 인정학점은 총 인정학점에 포함되며, 승인 전 값은 예상으로만 계산합니다.';
+  if (s.department.includes('간호학과')) return `${base} 간호학과는 편입 후 3년 이상 걸릴 수 있습니다.`;
+  if (s.department.includes('건축학과')) return `${base} 건축학과는 5년제 잔여 교육과정을 따릅니다.`;
+  if (s.department.includes('수의학과') || s.department.includes('약학과')) {
+    return `${base} 해당 과정은 편입 후 4년 교육과정을 따릅니다.`;
+  }
+  return base;
 }
 
 function creditInputRow(label, target, key) {
@@ -2140,33 +2336,62 @@ function creditInputRow(label, target, key) {
   </div>`;
 }
 
+function transferCreditInputRow(label, key) {
+  const s = state.creditStatus;
+  return `<div class="row">
+    <div class="grow"><div class="label">${esc(label)}</div></div>
+    <input class="credit" type="number" min="0" max="250" inputmode="numeric" data-credit="${key}" value="${s[key]}">
+  </div>`;
+}
+
 function remainingRequirementsHTML() {
   const s = state.creditStatus;
-  const rule = resolveRule(s.admissionYear, s.department);
+  const rule = resolveRule(effectiveCurriculumYear(s), s.department, s.admissionType);
   const rem = (target, completed) => target <= 0 ? 0 : clamp(target - completed, 0, target);
   const details = [];
   const add = (label, value, { unit = '학점', level = 0, strong = false } = {}) => {
     if (value > 0) details.push({ label, value, unit, level, strong });
   };
-  const generalDetails = [];
-  const basicAreasRemaining = rem(BASIC_AREAS.length, s.completedGeneralBasicAreas.length);
-  if (basicAreasRemaining > 0) generalDetails.push({ label: '기초 필수 분야', value: basicAreasRemaining, unit: '분야', level: 1, strong: false });
-  if (s.admissionYear >= 2025) {
-    const coreGroupsRemaining = rem(CORE_GROUPS.length, s.completedGeneralCoreGroups.length);
-    if (coreGroupsRemaining > 0) generalDetails.push({ label: '핵심 필수 묶음', value: coreGroupsRemaining, unit: '묶음', level: 1, strong: false });
+  if (statusHasGeneralEducationRequirements(s)) {
+    const generalDetails = [];
+    const basicAreasRemaining = rem(BASIC_AREAS.length, s.completedGeneralBasicAreas.length);
+    if (basicAreasRemaining > 0) {
+      generalDetails.push({ label: '기초 필수 분야', value: basicAreasRemaining, unit: '분야', level: 1, strong: false });
+    }
+    if (effectiveCurriculumYear(s) >= 2025) {
+      const coreGroupsRemaining = rem(CORE_GROUPS.length, s.completedGeneralCoreGroups.length);
+      if (coreGroupsRemaining > 0) {
+        generalDetails.push({ label: '핵심 필수 묶음', value: coreGroupsRemaining, unit: '묶음', level: 1, strong: false });
+      }
+    }
+    const basicRem = statusGeneralBasicRemaining(s);
+    const coreRem = statusGeneralCoreRemaining(s);
+    const otherRem = statusGeneralOtherRemaining(s);
+    if (basicRem > 0) generalDetails.push({ label: rule.basicLabel, value: basicRem, unit: '학점', level: 1, strong: false });
+    if (coreRem > 0) generalDetails.push({ label: rule.coreLabel, value: coreRem, unit: '학점', level: 1, strong: false });
+    if (otherRem > 0) generalDetails.push({ label: rule.otherGeneralLabel, value: otherRem, unit: '학점', level: 1, strong: false });
+    if (generalDetails.length > 0) {
+      details.push({
+        label: '교양',
+        value: statusGeneralRequirementRemaining(s) > 0 ? statusGeneralRequirementRemaining(s) : null,
+        unit: '학점', level: 0, strong: true,
+      });
+      details.push(...generalDetails);
+    }
   }
-  const basicRem = remainingCredits(s.generalBasicTarget, s.generalBasicCompleted);
-  const coreRem = remainingCredits(s.generalCoreTarget, s.generalCoreCompleted);
-  const otherRem = remainingCredits(s.generalOtherTarget, s.generalOtherCompleted);
-  if (basicRem > 0) generalDetails.push({ label: rule.basicLabel, value: basicRem, unit: '학점', level: 1, strong: false });
-  if (coreRem > 0) generalDetails.push({ label: rule.coreLabel, value: coreRem, unit: '학점', level: 1, strong: false });
-  if (otherRem > 0) generalDetails.push({ label: rule.otherGeneralLabel, value: otherRem, unit: '학점', level: 1, strong: false });
-  if (generalDetails.length > 0) {
-    const generalTotal = basicRem + coreRem + otherRem;
-    details.push({ label: '교양', value: generalTotal > 0 ? generalTotal : null, unit: '학점', level: 0, strong: true });
-    details.push(...generalDetails);
+  if (isTransferStatus(s)) {
+    details.unshift(
+      {
+        label: s.transferRecognitionConfirmed
+          ? '편입 인정 · 학교 승인값'
+          : '편입 인정 · 학교 승인값 확인 필요',
+        value: appliedTransferRecognizedCredits(s), unit: '학점', level: 0, strong: true,
+      },
+      { label: '전공 인정', value: appliedTransferRecognizedMajorCredits(s), unit: '학점', level: 1, strong: false },
+      { label: '교양 인정', value: appliedTransferRecognizedGeneralCredits(s), unit: '학점', level: 1, strong: false },
+    );
   }
-  const majorRemaining = rem(s.majorTotalTarget, s.majorRequiredCompleted + s.majorElectiveCompleted);
+  const majorRemaining = rem(s.majorTotalTarget, statusMajorCompleted(s));
   const majorRequiredRemaining = rem(s.majorRequiredTarget, s.majorRequiredCompleted);
   const majorElectiveRemaining = rem(s.majorElectiveTarget, s.majorElectiveCompleted);
   if (majorRemaining > 0) {
@@ -2180,20 +2405,29 @@ function remainingRequirementsHTML() {
   add('일반선택', rem(s.generalElectiveTarget, s.generalElectiveCompleted));
 
   const completedTotal = statusCompletedTotal(s);
-  const graduationRemaining = rem(s.graduationCredits, completedTotal);
+  const graduationRemaining = statusGraduationRemaining(s);
+  const minimumCreditsRemaining = isTransferStatus(s)
+    ? statusMinimumCreditsRequired(s)
+    : graduationRemaining;
   const progress = s.graduationCredits <= 0 ? 0 : clamp(completedTotal / s.graduationCredits, 0, 1);
   const semesters = statusRemainingRegularSemesters(s);
 
   let html = `<div class="card"><div class="row" style="flex-direction:column;align-items:stretch;gap:8px">
     <div style="display:flex;align-items:center">
-      <div class="grow"><div class="label" style="font-weight:700">졸업 총학점</div>
-        <div class="sub">${completedTotal} / ${s.graduationCredits}학점 이수</div></div>
-      <div style="font-size:17px;font-weight:700">${graduationRemaining === 0 ? '충족' : graduationRemaining + '학점 남음'}</div>
+      <div class="grow"><div class="label" style="font-weight:700">${isTransferStatus(s) ? '졸업까지 최소 이수' : '졸업 총학점'}</div>
+        <div class="sub">${isTransferStatus(s)
+          ? `총학점 ${graduationRemaining} · 전공 ${majorRemaining}학점 남음`
+          : `${completedTotal} / ${s.graduationCredits}학점 이수`}</div></div>
+      <div style="font-size:17px;font-weight:700">${minimumCreditsRemaining === 0 ? '충족' : minimumCreditsRemaining + '학점 남음'}</div>
     </div>
     <div class="pbar"><i style="width:${(progress * 100).toFixed(1)}%"></i></div>
-    ${graduationRemaining > 0 ? `<div class="sub" style="display:flex;justify-content:space-between">
-      <span>현재 학기 포함 정규학기 ${semesters}학기</span>
-      <span>학기당 평균 ${creditText(graduationRemaining / semesters)}학점</span></div>` : ''}
+    ${minimumCreditsRemaining > 0
+      ? statusHasSpecialTransferProgram(s)
+        ? '<div class="sub">편입 특수과정은 학과별 수업연한 확인 필요</div>'
+        : `<div class="sub" style="display:flex;justify-content:space-between">
+            <span>현재 학기 포함 정규학기 ${semesters}학기</span>
+            <span>학기당 평균 ${creditText(minimumCreditsRemaining / semesters)}학점</span></div>`
+      : ''}
   </div></div>`;
 
   html += '<div class="card" style="margin-top:12px">';
@@ -2214,7 +2448,14 @@ function remainingRequirementsHTML() {
 function stepAcademicHTML() {
   const s = state.creditStatus;
   const p = state.preferences;
-  const rule = resolveRule(s.admissionYear, s.department);
+  const isTransfer = isTransferStatus(s);
+  const curriculumYear = effectiveCurriculumYear(s);
+  const showGeneralRequirements = statusHasGeneralEducationRequirements(s);
+  const rule = resolveRule(curriculumYear, s.department, s.admissionType);
+  const grades = Array.from({ length: isTransfer ? 4 : 6 }, (_, index) => index + (isTransfer ? 3 : 1));
+  const recognitionResult = !s.transferRecognitionConfirmed
+    ? 0
+    : s.transferGeneralRequirementsApply ? 2 : 1;
   const departmentOptions = state.departments
     .map((d) => `<option value="${esc(d)}" ${d === s.department ? 'selected' : ''}>${esc(d)}</option>`)
     .join('');
@@ -2224,13 +2465,24 @@ function stepAcademicHTML() {
 
     <div class="section-h">학적</div>
     <div class="card">
+      <div class="row"><div class="grow label">입학 구분</div>
+        <div class="seg" style="width:170px">
+          ${[['freshman', '신입학'], ['transfer', '편입학']].map(([value, label]) =>
+            `<button data-admission-type="${value}" class="${value === s.admissionType ? 'on' : ''}">${label}</button>`).join('')}
+        </div>
+      </div>
       <div class="row"><div class="grow label">학번</div>
         <select data-set="admissionYear">
           ${[2021, 2022, 2023, 2024, 2025, 2026].map((y) => `<option value="${y}" ${y === s.admissionYear ? 'selected' : ''}>${y}학번</option>`).join('')}
         </select>
       </div>
+      ${isTransfer ? `<div class="row"><div class="grow label">적용 교육과정</div>
+        <select data-curriculum-year>
+          ${[2021, 2022, 2023, 2024, 2025, 2026].map((y) => `<option value="${y}" ${y === curriculumYear ? 'selected' : ''}>${y}학년도</option>`).join('')}
+        </select>
+      </div>` : ''}
       <div class="row"><div class="grow label">수강 예정 학년</div>
-        <div class="seg" style="width:216px">${[1, 2, 3, 4, 5, 6].map((g) => `<button data-grade="${g}" class="${g === s.currentGrade ? 'on' : ''}">${g}</button>`).join('')}</div>
+        <div class="seg" style="width:${isTransfer ? 190 : 216}px">${grades.map((g) => `<button data-grade="${g}" class="${g === s.currentGrade ? 'on' : ''}">${g}</button>`).join('')}</div>
       </div>
       <div class="row"><div class="grow label">수강 예정 학기</div>
         <div class="seg" style="width:150px">${[1, 2].map((sem) => `<button data-cs-semester="${sem}" class="${sem === s.currentSemester ? 'on' : ''}">${sem}학기</button>`).join('')}</div>
@@ -2244,18 +2496,34 @@ function stepAcademicHTML() {
         <div class="val">${rule.graduationCredits > 0 ? rule.graduationCredits + '학점' : '-'}</div>
       </div>
     </div>
-    ${!rule.isVerified ? `<div class="hint">${s.department ? `${s.admissionYear}학번의 해당 학과 기준은 아직 검증되지 않았습니다.` : '학과를 선택하면 수강편람 기준학점을 불러옵니다.'}</div>` : ''}
+    ${!rule.isVerified ? `<div class="hint">${s.department ? `${curriculumYear}학년도 해당 학과 기준은 아직 검증되지 않았습니다.` : '학과를 선택하면 수강편람 기준학점을 불러옵니다.'}</div>` : ''}
 
-    <div class="section-h">기초교양 필수 분야</div>
+    ${isTransfer ? `
+    <div class="section-h">편입 학점인정</div>
+    <div class="card">
+      ${transferCreditInputRow('총 인정학점', 'transferRecognizedCredits')}
+      ${transferCreditInputRow('전공 인정학점', 'transferRecognizedMajorCredits')}
+      ${transferCreditInputRow('교양 인정학점', 'transferRecognizedGeneralCredits')}
+      <div class="row"><div class="grow label">교양 인정 결과</div>
+        <div class="seg" style="width:210px">
+          ${[[0, '확인 전'], [1, '인정'], [2, '이수 필요']].map(([value, label]) =>
+            `<button data-recognition-result="${value}" class="${value === recognitionResult ? 'on' : ''}">${label}</button>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="hint">${esc(transferRecognitionFooter(s))}</div>` : ''}
+
+    ${showGeneralRequirements ? `
+    <div class="section-h">${esc(rule.basicLabel)} 필수 영역</div>
     <div class="card">
       ${BASIC_AREAS.map(([key, label]) => `
-        <div class="row"><div class="grow label">${key === 'software' && s.admissionYear >= 2025 ? '소프트웨어·AI' : label}</div>
+        <div class="row"><div class="grow label">${key === 'software' && curriculumYear >= 2025 ? '소프트웨어·AI' : label}</div>
           <label class="switch"><input type="checkbox" data-basic-area="${key}" ${s.completedGeneralBasicAreas.includes(key) ? 'checked' : ''}><i></i></label>
         </div>`).join('')}
     </div>
-    <div class="hint">${s.admissionYear <= 2024 ? '2021~2024학번은 네 분야에서 각각 1과목 이상 이수해야 합니다.' : '각 분야에서 1과목 이상 이수해야 합니다.'}</div>
+    <div class="hint">${curriculumYear <= 2024 ? '네 분야에서 각각 1과목 이상 이수해야 합니다.' : '각 분야에서 1과목 이상 이수해야 합니다.'}</div>` : ''}
 
-    ${s.admissionYear >= 2025 ? `
+    ${showGeneralRequirements && curriculumYear >= 2025 ? `
     <div class="section-h">핵심교양·JNU소양 필수 묶음</div>
     <div class="card">
       ${CORE_GROUPS.map(([key, label]) => `
@@ -2265,22 +2533,25 @@ function stepAcademicHTML() {
     </div>
     <div class="hint">각 묶음에서 1과목 이상 이수해야 합니다.</div>` : ''}
 
-    <div class="section-h">이수 현황 (기이수 학점) · ${esc(rule.sourceLabel)}</div>
+    <div class="section-h">${isTransfer ? '제주대 이수 학점' : '이수 학점'}</div>
     <div class="card">
       <div class="row" style="min-height:34px;padding-top:8px;padding-bottom:4px">
         <div class="grow"></div>
         <div class="val" style="width:40px;text-align:center;font-size:12px">기준</div>
         <div class="val" style="width:62px;text-align:center;font-size:12px">기이수</div>
       </div>
-      ${creditInputRow(rule.basicLabel, rule.basicMinimum, 'generalBasicCompleted')}
-      ${creditInputRow(rule.coreLabel, rule.coreMinimum, 'generalCoreCompleted')}
-      ${creditInputRow(rule.otherGeneralLabel, rule.otherGeneralMinimum, 'generalOtherCompleted')}
-      <div class="row"><div class="grow label">교양 합계</div><div class="val">${rule.generalMinimum > 0 ? rule.generalMinimum + '학점' : '-'}</div></div>
-      ${creditInputRow('전공필수', rule.majorRequiredMinimum, 'majorRequiredCompleted')}
-      ${creditInputRow('전공선택', rule.majorRequiredMinimum > 0 ? clamp(rule.majorMinimum - rule.majorRequiredMinimum, 0, 250) : 0, 'majorElectiveCompleted')}
+      ${creditInputRow(rule.basicLabel, showGeneralRequirements ? rule.basicMinimum : 0, 'generalBasicCompleted')}
+      ${creditInputRow(rule.coreLabel, showGeneralRequirements ? rule.coreMinimum : 0, 'generalCoreCompleted')}
+      ${creditInputRow(rule.otherGeneralLabel, showGeneralRequirements ? rule.otherGeneralMinimum : 0, 'generalOtherCompleted')}
+      <div class="row"><div class="grow label">교양 합계</div><div class="val">${showGeneralRequirements && rule.generalMinimum > 0 ? rule.generalMinimum + '학점' : '-'}</div></div>
+      ${creditInputRow('전공필수', isTransfer ? 0 : rule.majorRequiredMinimum, 'majorRequiredCompleted')}
+      ${creditInputRow('전공선택', !isTransfer && rule.majorRequiredMinimum > 0 ? clamp(rule.majorMinimum - rule.majorRequiredMinimum, 0, 250) : 0, 'majorElectiveCompleted')}
       <div class="row"><div class="grow label">전공 합계</div><div class="val">${rule.majorMinimum > 0 ? rule.majorMinimum + '학점' : '-'}</div></div>
       ${creditInputRow('일반선택', 0, 'generalElectiveCompleted')}
     </div>
+    <div class="hint">${esc(isTransfer
+      ? `${rule.sourceLabel} · 전필 대체 여부는 학과의 과목별 인정 결과를 따릅니다.`
+      : rule.sourceLabel)}</div>
 
     <div class="section-h">남은 이수 요건</div>
     ${remainingRequirementsHTML()}
@@ -2310,48 +2581,91 @@ function stepAcademicHTML() {
 }
 
 function bindStepAcademic(root) {
+  const commit = ({ candidates = false, validate = false } = {}) => {
+    applyRuleToStatus();
+    invalidateAcademic({ candidates });
+    if (validate) {
+      const message = transferRecognitionError();
+      state.error = message ? `인정학점을 확인해주세요\n${message}` : '';
+    }
+    saveState();
+    render();
+  };
+
+  root.querySelectorAll('[data-admission-type]').forEach((btn) => btn.addEventListener('click', () => {
+    const s = state.creditStatus;
+    const next = btn.dataset.admissionType;
+    if (next === s.admissionType) return;
+    s.admissionType = next;
+    if (isTransferStatus(s)) {
+      s.currentGrade = clamp(s.currentGrade, 3, 6);
+      s.curriculumYear = clamp(s.admissionYear - 2, 2021, 2026);
+    } else {
+      s.curriculumYear = null;
+    }
+    commit({ candidates: true });
+  }));
+
   root.querySelectorAll('[data-set]').forEach((select) => {
     select.addEventListener('change', () => {
       const key = select.dataset.set;
-      if (key === 'admissionYear') state.creditStatus.admissionYear = parseInt(select.value, 10);
-      else state.creditStatus[key] = select.value;
-      applyRuleToStatus();
-      if (key === 'department') state.candidatesKey = '';
-      saveState(); render();
+      if (key === 'admissionYear') {
+        state.creditStatus.admissionYear = parseInt(select.value, 10);
+        if (isTransferStatus(state.creditStatus)) {
+          state.creditStatus.curriculumYear = clamp(state.creditStatus.admissionYear - 2, 2021, 2026);
+        }
+      } else {
+        state.creditStatus[key] = select.value;
+      }
+      commit({ candidates: true, validate: isTransferStatus(state.creditStatus) });
     });
   });
+  root.querySelectorAll('[data-curriculum-year]').forEach((select) => select.addEventListener('change', () => {
+    state.creditStatus.curriculumYear = clamp(parseInt(select.value, 10) || 2021, 2021, 2026);
+    commit({ candidates: true, validate: true });
+  }));
   root.querySelectorAll('[data-grade]').forEach((btn) => btn.addEventListener('click', () => {
     state.creditStatus.currentGrade = parseInt(btn.dataset.grade, 10);
-    state.candidatesKey = '';
-    saveState(); render();
+    commit({ candidates: true });
   }));
   root.querySelectorAll('[data-cs-semester]').forEach((btn) => btn.addEventListener('click', () => {
-    state.creditStatus.currentSemester = parseInt(btn.dataset.csSemester, 10); saveState(); render();
+    state.creditStatus.currentSemester = parseInt(btn.dataset.csSemester, 10);
+    commit();
+  }));
+  root.querySelectorAll('[data-recognition-result]').forEach((btn) => btn.addEventListener('click', () => {
+    const value = parseInt(btn.dataset.recognitionResult, 10);
+    state.creditStatus.transferRecognitionConfirmed = value !== 0;
+    state.creditStatus.transferGeneralRequirementsApply = value === 2;
+    commit({ validate: true });
   }));
   root.querySelectorAll('[data-basic-area]').forEach((input) => input.addEventListener('change', () => {
     const key = input.dataset.basicArea;
     const set = new Set(state.creditStatus.completedGeneralBasicAreas);
     input.checked ? set.add(key) : set.delete(key);
     state.creditStatus.completedGeneralBasicAreas = [...set].sort();
-    saveState();
+    commit({ candidates: true });
   }));
   root.querySelectorAll('[data-core-group]').forEach((input) => input.addEventListener('change', () => {
     const key = input.dataset.coreGroup;
     const set = new Set(state.creditStatus.completedGeneralCoreGroups);
     input.checked ? set.add(key) : set.delete(key);
     state.creditStatus.completedGeneralCoreGroups = [...set].sort();
-    saveState();
+    commit({ candidates: true });
   }));
   root.querySelectorAll('[data-credit]').forEach((input) => input.addEventListener('change', () => {
     state.creditStatus[input.dataset.credit] = clamp(parseInt(input.value, 10) || 0, 0, 250);
-    saveState();
+    commit({ validate: isTransferStatus(state.creditStatus) });
   }));
   root.querySelectorAll('[data-step-pref]').forEach((btn) => btn.addEventListener('click', () => {
     const [key, delta] = btn.dataset.stepPref.split(':');
     const p = state.preferences;
     const next = p[key] + parseInt(delta, 10);
     if (key === 'academicYear') { p.academicYear = clamp(next, 2024, CURRENT_YEAR + 1); onTermMaybeChanged(); }
-    if (key === 'targetCredits') p.targetCredits = clamp(next, 12, 24);
+    if (key === 'targetCredits') {
+      p.targetCredits = clamp(next, 12, 24);
+      state.plans = [];
+      state.selectedPlanIndex = 0;
+    }
     saveState(); render();
   }));
   root.querySelectorAll('[data-pref-semester]').forEach((btn) => btn.addEventListener('click', () => {
@@ -2364,6 +2678,7 @@ function onTermMaybeChanged() {
   state.candidatesKey = '';
   state.candidates = [];
   state.plans = [];
+  state.selectedPlanIndex = 0;
 }
 </script>
 <script>
@@ -2560,7 +2875,7 @@ function planCourseListHTML(plan, analysis) {
     return am.weekday - bm.weekday || am.startMinutes - bm.startMinutes;
   });
   return courses.map((c) => {
-    const rec = resolveRecognition(c, state.creditStatus.admissionYear);
+    const rec = resolveRecognition(c, effectiveCurriculumYear(state.creditStatus));
     const reasons = analysis.courseReasons[c.id] || [];
     return `<div class="row tappable" data-replace="${esc(c.id)}"><div class="grow">
       <div class="label" style="font-weight:600">${esc(c.name)}</div>
@@ -2791,6 +3106,12 @@ async function nextStep() {
       return;
     }
     applyRuleToStatus();
+    const recognitionError = transferRecognitionError();
+    if (recognitionError) {
+      state.error = `인정학점을 확인해주세요\n${recognitionError}`;
+      render();
+      return;
+    }
     saveState();
   }
   if (state.step === 1) {
@@ -2823,6 +3144,7 @@ document.getElementById('navRight').addEventListener('click', () => {
  * ============================================================ */
 async function boot() {
   loadState();
+  applyRuleToStatus();
   render();
   try {
     state.departments = await repo.getDepartments(state.preferences.academicYear, state.preferences.semester);
@@ -2832,7 +3154,6 @@ async function boot() {
   render();
 }
 boot();
-</script>
 </script>
 </body>
 </html>
